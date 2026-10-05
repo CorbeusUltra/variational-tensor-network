@@ -1,0 +1,16 @@
+[project]
+name = "fully-frustrated-ctmrg"
+version = "0.1.0"
+description = "CTMRG code for the fully frustrated bilayer model using pytorch"
+readme = "README.md"
+authors = [
+    { name = "Lucas Bourret", email = "lucas.bourret@epfl.ch" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "torch>=2.14.1",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.23,<0.13.0"]
+build-backend = "uv_build"
