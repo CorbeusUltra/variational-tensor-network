@@ -1,6 +1,6 @@
-# Fully Frustrated CTMRG
+# Variational tensor network
 
-CTMRG for the fully frustrated bilayer model, using PyTorch.
+CTMRG using PyTorch.
 
 ## Setup
 
@@ -14,4 +14,4 @@ uv sync
 
 ## Status
 
-Work in progress. The package structure is initialized; tensor construction and CTMRG moves remain to be implemented.
+Work in progress. 

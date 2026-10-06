@@ -1,5 +1,5 @@
 [project]
-name = "fully-frustrated-ctmrg"
+name = "variational-tensor-network"
 version = "0.1.0"
 description = "CTMRG code for the fully frustrated bilayer model using pytorch"
 readme = "README.md"
