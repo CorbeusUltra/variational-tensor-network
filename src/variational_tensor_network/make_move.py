@@ -8,7 +8,7 @@ from .objects import Config, DEFAULT_config, Environment
 
 
 def left_move(A: Tensor = DEFAULT_A, env: Environment = DEFAULT_env, config: Config = DEFAULT_config) -> Environment:
-    C_ul, C_ur, C_dl, C_dr, T_u, T_r, T_d, T_l = env
+    C_ur, C_ul, C_dl, C_dr, T_r, T_u, T_l, T_d = env
 
     R        = einsum("IA,AJB,BKC,CL,iaI,bJaj,cKbk,Lcl->ijkl", C_ul, T_u, T_u, C_ur, T_l, A, A, T_r)
     Rbar     = einsum("AI,BJA,CKB,LC,Iai,bjaJ,ckbK,lcL->ijkl", C_dl, T_d, T_d, C_dr, T_l, A, A, T_r)
@@ -65,7 +65,7 @@ def left_move(A: Tensor = DEFAULT_A, env: Environment = DEFAULT_env, config: Con
     print(f"\n\n T_l:{T_l.shape}\n")
 
     C_ul_new = einsum("ijk,il,ljm->km",Pbar,C_ul,T_u)
-    T_l_new = einsum("ijkl,nkm,mjo,nlp->pin", A, T_l, P , Pbar)
+    T_l_new = einsum("ijkl,nkm,mjo,nlp->pio", A, T_l, P, Pbar)
     C_dl_new = einsum("ijk,li,mjl->mk", P, C_dl, T_d)
     env_new = Environment(C_ur, C_ul_new, C_dl_new, C_dr, T_r, T_u, T_l_new, T_d, config)
 

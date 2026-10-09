@@ -31,21 +31,13 @@ DEFAULT_config = Config()
 
 @dataclass
 class Environment:
-    C_ur: Tensor
-    C_ul: Tensor
-    C_dr: Tensor
-    C_dl: Tensor
-
-    T_r: Tensor
-    T_u: Tensor
-    T_l: Tensor
-    T_d: Tensor
+    C_ur: Tensor; C_ul: Tensor; C_dl: Tensor; C_dr: Tensor; T_r: Tensor; T_u: Tensor; T_l: Tensor; T_d: Tensor
 
     config: InitVar[Config | None] = None
 
     def __post_init__(self, config: Config | None) -> None:
-        corners = ("C_ul", "C_ur", "C_dl", "C_dr")
-        edges = ("T_u", "T_r", "T_d", "T_l")
+        corners = ("C_ur", "C_ul", "C_dl", "C_dr")
+        edges = ("T_r", "T_u", "T_l", "T_d")
 
         for names, ndim in ((corners, 2), (edges, 3)):
             for name in names:
@@ -55,25 +47,21 @@ class Environment:
                 if any(size <= 0 for size in tensor.shape):
                     raise ValueError(f"{name} must have strictly positive dimensions.")
 
-        D2 = config.D2 if config is not None else self.T_u.shape[1]
+        D2 = config.D2 if config is not None else self.T_r.shape[1]
         for name in edges:
             if getattr(self, name).shape[1] != D2:
                 raise ValueError(f"{name}.shape[1] must equal D2 = {D2}.")
 
-        connections=(("C_ul",0,"T_l",2),("C_ul",1,"T_u",0),("C_ur",0,"T_u",2),("C_ur", 1,"T_r", 0),("C_dr",0,"T_r",2),("C_dr",1,"T_d",0),("C_dl",0,"T_d",2),("C_dl",1,"T_l",0))
+        connections=(("C_ur",1,"T_r",0),("C_ur",0,"T_u",2),("C_ul",1,"T_u",0),("C_ul",0,"T_l",2),("C_dl",1,"T_l", 0),("C_dl",0,"T_d",2),("C_dr",1,"T_d",0),("C_dr",0,"T_r",2))
 
         for corner, c_axis, edge, t_axis in connections:
             c_size = getattr(self, corner).shape[c_axis]
             t_size = getattr(self, edge).shape[t_axis]
             if c_size != t_size:
-                raise ValueError(
-                    f"{corner}.shape[{c_axis}] = {c_size} does not match "
-                    f"{edge}.shape[{t_axis}] = {t_size}."
-                )
-    
-    def __iter__(self) -> Iterator[Tensor]:
-        return iter((self.C_ul, self.C_ur, self.C_dl, self.C_dr, self.T_u, self.T_r, self.T_d, self.T_l))
+                raise ValueError(f"{corner}.shape[{c_axis}] = {c_size} does not match "f"{edge}.shape[{t_axis}] = {t_size}.")
 
+    def __iter__(self) -> Iterator[Tensor]:
+        return iter((self.C_ur, self.C_ul, self.C_dl, self.C_dr, self.T_r, self.T_u, self.T_l, self.T_d))
 
 
 # May be useful later
