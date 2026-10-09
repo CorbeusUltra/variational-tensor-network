@@ -3,13 +3,15 @@
 from collections.abc import Iterator
 from dataclasses import InitVar, dataclass
 
+import torch
 from torch import Tensor
 
+torch.set_default_dtype(torch.float64)
 
 @dataclass
 class Config:
     d: int = 2
-    D: int = 2
+    D: int = 3
     chi: int = 5
 
     def __post_init__(self) -> None:
@@ -29,32 +31,52 @@ DEFAULT_config = Config()
 
 @dataclass
 class Environment:
-    C_ul: Tensor
     C_ur: Tensor
-    C_dl: Tensor
+    C_ul: Tensor
     C_dr: Tensor
+    C_dl: Tensor
 
-    T_u: Tensor
     T_r: Tensor
-    T_d: Tensor
+    T_u: Tensor
     T_l: Tensor
+    T_d: Tensor
 
-    chi: InitVar[int]
-    D2: InitVar[int]
+    config: InitVar[Config | None] = None
 
-    # def __post_init__(self, chi: int, D2: int) -> None:
-    #     for name in ("C_ul", "C_ur", "C_dl", "C_dr"):
-    #         if tuple(getattr(self, name).shape) != (chi, chi):
-    #             raise ValueError(f"{name} must have shape (χ, χ) = ({chi}, {chi}).")
+    def __post_init__(self, config: Config | None) -> None:
+        corners = ("C_ul", "C_ur", "C_dl", "C_dr")
+        edges = ("T_u", "T_r", "T_d", "T_l")
 
-    #     for name in ("T_u", "T_r", "T_d", "T_l"):
-    #         if tuple(getattr(self, name).shape) != (chi, D2, chi):
-    #             raise ValueError(f"{name} must have shape (χ, D², χ) = ({chi}, {D2}, {chi}).")
+        for names, ndim in ((corners, 2), (edges, 3)):
+            for name in names:
+                tensor = getattr(self, name)
+                if tensor.ndim != ndim:
+                    raise ValueError(f"{name} must have {ndim} axes.")
+                if any(size <= 0 for size in tensor.shape):
+                    raise ValueError(f"{name} must have strictly positive dimensions.")
+
+        D2 = config.D2 if config is not None else self.T_u.shape[1]
+        for name in edges:
+            if getattr(self, name).shape[1] != D2:
+                raise ValueError(f"{name}.shape[1] must equal D2 = {D2}.")
+
+        connections=(("C_ul",0,"T_l",2),("C_ul",1,"T_u",0),("C_ur",0,"T_u",2),("C_ur", 1,"T_r", 0),("C_dr",0,"T_r",2),("C_dr",1,"T_d",0),("C_dl",0,"T_d",2),("C_dl",1,"T_l",0))
+
+        for corner, c_axis, edge, t_axis in connections:
+            c_size = getattr(self, corner).shape[c_axis]
+            t_size = getattr(self, edge).shape[t_axis]
+            if c_size != t_size:
+                raise ValueError(
+                    f"{corner}.shape[{c_axis}] = {c_size} does not match "
+                    f"{edge}.shape[{t_axis}] = {t_size}."
+                )
     
     def __iter__(self) -> Iterator[Tensor]:
         return iter((self.C_ul, self.C_ur, self.C_dl, self.C_dr, self.T_u, self.T_r, self.T_d, self.T_l))
 
 
+
+# May be useful later
 
 # @dataclass
 # class aTensor:
