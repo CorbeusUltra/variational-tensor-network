@@ -1,5 +1,6 @@
 """Full CTMRG algorithm."""
 
+# from math import isfinite
 from warnings import warn
 
 import torch
@@ -7,7 +8,9 @@ from torch import Tensor
 
 from .ctmrg_moves import all_moves, all_moves_sites
 from .objects import Config, Environment, EnvSites
-from .peps import TensorSites
+
+# from .observables import ctmrg_rdms, expectation_from_rdm
+from .peps import TensorSites  # , double_layer
 from .tilings import UnitCellCoord
 
 
@@ -29,7 +32,7 @@ def run_ctmrg(env: Environment, A: Tensor, config: Config, *, stop_on_convergenc
             return env, errors, thresholds
     if stop_on_convergence:
         recent_errors = "\n".join(f"{error:.3e}" for error in errors[-10:])
-        warn(f"\n\nCTMRG did not converge after {max_iter} cycles "
+        warn(f"CTMRG did not converge after {max_iter} cycles "
              f"(D={config.D}, chi={config.chi}).\n"
              f"Last errors, oldest to newest: \n{recent_errors}\n"
              f"Final threshold: {thresholds[-1]:.2e}.\n"
@@ -38,7 +41,7 @@ def run_ctmrg(env: Environment, A: Tensor, config: Config, *, stop_on_convergenc
     return env, errors, thresholds
 
 
-def run_ctmrg_sites(env_sites: EnvSites, A_sites: TensorSites, unitcell_coord: UnitCellCoord, config: Config, *, stop_on_convergence: bool = True, max_iter: int = 1000, conv_atol: float = 1e-10, conv_rtol: float = 1e-10) -> tuple[EnvSites, list[Tensor], list[Tensor]]:
+def run_ctmrg_sites(env_sites: EnvSites, A_sites: TensorSites, unitcell_coord: UnitCellCoord, config: Config, *, stop_on_convergence: bool = True, max_iter: int = 1000, conv_atol: float = 1e-6, conv_rtol: float = 1e-6) -> tuple[EnvSites, list[Tensor], list[Tensor]]:
     if max_iter < 2:
         raise ValueError("max_iter must be at least 2.")
     env_sites, xi_new = all_moves_sites(A_sites, env_sites, unitcell_coord, config)
@@ -59,7 +62,7 @@ def run_ctmrg_sites(env_sites: EnvSites, A_sites: TensorSites, unitcell_coord: U
         unconverged_sites = (~(errors[-1] <= thresholds[-1])).sum().item()
         threshold_min = thresholds[-1].min().item()
         threshold_max = thresholds[-1].max().item()
-        warn(f"\n\nCTMRG did not converge after {max_iter} cycles "
+        warn(f"CTMRG did not converge after {max_iter} cycles "
              f"(D={config.D}, chi={config.chi}).\n"
              f"Unconverged sites: {unconverged_sites}/{len(env_sites)}.\n"
              f"Last maximum errors, oldest to newest: \n{recent_errors}\n"

@@ -53,7 +53,8 @@ def get_projectors(R: Tensor, Rbar: Tensor, config: Config) -> tuple[Tensor, Ten
     rank = (S > rtol * S[0]).sum().item()
     if rank == 0:
         raise ValueError("M has no numerically significant singular values.")
-    xi = S.new_zeros(()) if rank == 1 else 1 / torch.log(S[0] / S[1])
+    # print(f"\n\nlambda_0: {S[0]}\nlambda_1: {S[1]}\n")
+    xi = S.new_zeros(()) if rank == 1 else 1 / (torch.log(S[0]) - torch.log(S[1]))
     p = min(config.chi, rank)
     U, S, V = U[:, :p], S[:p], V[:, :p]
     U = U.reshape(dim_i, dim_j, p)
