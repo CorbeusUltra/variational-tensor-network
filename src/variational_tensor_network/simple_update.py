@@ -1,5 +1,6 @@
 """Do a simple update."""
 
+from time import perf_counter
 from warnings import warn
 
 import torch
@@ -9,6 +10,7 @@ from torch.linalg import vector_norm
 from .objects import BondWeights, SiteWeights
 from .observables import expectation_from_rdm, simple_update_rdms
 from .peps import TensorSites, get_site_weights, rotate_site_weights
+from .reporting import format_duration, format_scientific, print_progress
 from .tilings import UnitCellCoord
 
 
@@ -74,30 +76,45 @@ def simple_update_sweep(a_sites: TensorSites, bond_weights: BondWeights, unitcel
         bond_weights[(site, direction)] = lambda_new
 
 
-def simple_update(a_sites: TensorSites, bond_weights: BondWeights, unitcell_coord: UnitCellCoord, h: Tensor, *, schedule: tuple[tuple[float, float], ...], max_sweeps: int = 10000) -> list[tuple[float, float]]:
+def simple_update(a_sites: TensorSites, bond_weights: BondWeights, unitcell_coord: UnitCellCoord, H: Tensor, *, schedule: tuple[tuple[float, float], ...], max_sweeps: int = 10000, verbosity: int = 1) -> list[tuple[float, float]]:
+    if max_sweeps < 1:
+        raise ValueError("max_sweeps must be at least 1.")
     history = []
     d = next(iter(a_sites.values())).shape[-1]
     rdms = simple_update_rdms(a_sites, bond_weights, unitcell_coord)
-    energies = {bond: expectation_from_rdm(rho, h).item() for bond, rho in rdms.items()}
+    energies = {bond: expectation_from_rdm(rho, H).item() for bond, rho in rdms.items()}
+
     for tau, tol in schedule:
-        G = torch.linalg.matrix_exp(-tau * h).reshape(d, d, d, d)
+        start = last_update = perf_counter()
+        if verbosity >= 1:
+            print(f"\ntau={format_scientific(tau)}, tol={format_scientific(tol)}", flush=True)
+        G = torch.linalg.matrix_exp(-tau * H).reshape(d, d, d, d)
+        converged = False
         for sweep in range(1, max_sweeps + 1):
             old_energies = energies
             simple_update_sweep(a_sites, bond_weights, unitcell_coord, G)
             rdms = simple_update_rdms(a_sites, bond_weights, unitcell_coord)
-            energies = {bond: expectation_from_rdm(rho, h).item() for bond, rho in rdms.items()}
-            error = max(abs(energies[bond] - old_energies[bond]) for bond in energies)
+            energies = {bond: expectation_from_rdm(rho, H).item() for bond, rho in rdms.items()}
+            # error = abs(sum(energies[bond] - old_energies[bond] for bond in energies)) # |∑_bonds (E_new - E_old)| ; tracks total unit-cell energy, but bond changes can cancel
+            error = max(abs(energies[bond] - old_energies[bond]) for bond in energies) # max_bonds |E_new - E_old| ; requires every bond-energy change to be within tolerance
             history.append((tau, error))
+            now = perf_counter()
+            if sweep == 1 or now - last_update >= 1.0:
+                print_progress(f"  sweep={sweep}/{max_sweeps} | error={error:.2e} | time={format_duration(now - start)}", verbosity)
+                last_update = now
             if error <= tol:
+                converged = True
                 break
-        else:
+        status = "Converged" if converged else "Not converged"
+        print_progress(f"  {status} | sweep={sweep}/{max_sweeps} | error={error:.2e} | time={format_duration(perf_counter() - start)}", verbosity, final=True)
+        if not converged:
             D = next(iter(a_sites.values())).shape[0]
             warn(f"\n\nSimple update did not converge after {max_sweeps} sweeps "
-                 f"(D={D}, tau={tau:.3g}).\n"
-                 f"Maximum bond-energy change: {error:.2e}.\n"
-                 f"Tolerance: {tol:.2e}.\n"
-                 "Returning the last state and skipping any remaining tau stages.\n",
-                 RuntimeWarning,
-                 stacklevel=2)
+                f"(D={D}, tau={tau:.3g}).\n"
+                f"Maximum bond-energy change: {error:.2e}.\n"
+                f"Tolerance: {tol:.2e}.\n"
+                "Returning the last state and skipping any remaining tau stages.\n",
+                RuntimeWarning,
+                stacklevel=2)
             return history
     return history

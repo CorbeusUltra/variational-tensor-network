@@ -55,10 +55,6 @@ def initial_env(delta: Tensor, A: Tensor, config: Config) -> Environment:
     T = torch.ones(chi,D2,chi)
     C_norm = vector_norm(C)
     T_norm = vector_norm(T)
-    if not torch.isfinite(C_norm) or C_norm <= 0:
-        raise ValueError("Cannot normalize C: its norm must be finite and strictly positive.")
-    if not torch.isfinite(T_norm) or T_norm <= 0:
-        raise ValueError("Cannot normalize T: its norm must be finite and strictly positive.")
     C /= C_norm
     T /= T_norm
     env = Environment(C,C,C,C,T,T,T,T,config)

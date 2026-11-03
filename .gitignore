@@ -14,3 +14,6 @@ wheels/
 
 # Generated results and figures
 /outputs/
+
+# Personnal
+run.slurm

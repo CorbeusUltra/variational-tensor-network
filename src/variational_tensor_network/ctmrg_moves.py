@@ -41,8 +41,6 @@ def get_projectors(R: Tensor, Rbar: Tensor, config: Config) -> tuple[Tensor, Ten
     r_left   = dim_i * dim_j
     r_right  = dim_k * dim_l
     M = RRbar.reshape(r_left, r_right)
-    if not torch.isfinite(M).all().item():
-        raise ValueError("The projector matrix contains non-finite values.")
     scale = M.abs().max()
     if scale.item() == 0:
         raise ValueError("The projector matrix is identically zero.")
@@ -152,8 +150,6 @@ def left_move(A: Tensor, env: Environment, config: Config) -> tuple[Environment,
     r_left   = dim_i * dim_j
     r_right  = dim_k * dim_l
     M = RRbar.reshape(r_left, r_right)
-    if not torch.isfinite(M).all().item():
-        raise ValueError("The projector matrix contains non-finite values.")
     scale = M.abs().max()
     if scale.item() == 0:
         raise ValueError("The projector matrix is identically zero.")
