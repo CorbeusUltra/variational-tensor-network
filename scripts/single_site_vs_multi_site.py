@@ -20,8 +20,8 @@ def check_tilings(sites_coords: tuple[Site, ...], unitcell_coord: UnitCellCoord,
     env_sites = initialize.initial_env_sites(A_sites, delta, config)
     env_reference = initialize.initial_env(delta, A, config)
     for _ in range(steps):
-        env_reference, _ = all_moves(A, env_reference, config)
-        env_sites, _ = all_moves_sites(A_sites, env_sites, unitcell_coord, config)
+        env_reference = all_moves(A, env_reference, config)
+        env_sites = all_moves_sites(A_sites, env_sites, unitcell_coord, config)
         for env in env_sites.values():
             for actual, expected in zip(env, env_reference):
                 torch.testing.assert_close(actual, expected, atol=1e-8, rtol=1e-8)

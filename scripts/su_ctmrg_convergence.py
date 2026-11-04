@@ -19,13 +19,14 @@ def main() -> None:
     config = Config(d=model["d"])
     # D_values = [2]
     # D_values = [3]
-    # D_values = [2, 3]
-    D_values = [2, 3, 4]
-    # maxD = max(D_values)
-    # chi_values_by_D = {D: [i + 1 for i in range(16)] for D in D_values} # Independent of D, useful for checkerboard curves. Small chi can be unreliable for abcd.
-    chi_values_by_D = {D: [16 + i for i in range (10)] for D in D_values} # Small grid for quick tests.
-    # chi_values_by_D = {D: [D**2 + i for i in range(10)] for D in D_values} # Small grid greater than D**2
-    # chi_values_by_D = {D: [16 + 2 * D * i for i in range(maxD + 1)] for D in D_values} # Previous advised range: D + 1 points, with spacing 2D.
+    D_values = [2, 3]
+    # D_values = [2, 3, 4]
+    # D_values = [4]
+    # chi_values_by_D = {3: [9]}
+    # chi_values_by_D = {D: [16 + i for i in range (8)] for D in D_values} # Small grid for quick tests.
+    # chi_values_by_D = {D: [D**2 + i for i in range(8)] for D in D_values} # Small grid greater than D**2
+    chi_values_by_D = {D: [16 + 2 * D * i for i in range(8)] for D in D_values} # Previous advised range: D + 1 points, with spacing 2D.
+    # chi_values_by_D = {D: [16 + 2 * D**2 * i for i in range(8)] for D in D_values} # Previous advised range: D + 1 points, with spacing 2D.
     schedule = ((.1, 1e-5), (.01, 1e-6), (.001, 1e-7)) # less precision required
     # schedule = ((.01, 1e-6), (.001, 1e-7))
     # schedule = ((.001, 1e-7),)
@@ -44,14 +45,10 @@ def main() -> None:
         if verbosity == 0:
             print_scan_summary(results_by_D, tiling_name, schedule)
         for D, result in results_by_D.items():
-            output_path = plot_output_path(__file__, f"{model_name}/{tiling_name}/energy_vs_chi_{tiling_name}_D={D}.pdf")
-            plot_energy_vs_chi(result["chi_values"], result["energies_per_peps_site_ctmrg"], D, title=f"{model['label']} — {tiling_name}", show=True, output_path=output_path)
-        # energies_by_D = {D: (result["chi_values"], result["energies_per_peps_site_ctmrg"]) for D, result in results_by_D.items()}
-        # output_path = plot_output_path(__file__, f"energy_by_D_vs_chi_{tiling_name}.pdf")
-        # plot_energy_by_D_vs_chi(energies_by_D, title=f"FFB — {tiling_name}",show=True, output_path=output_path)
-
-    print(f"\nTotal simulation time: {format_duration(simulation_time)}")
-    print(f"Total runtime (including plots): {format_duration(perf_counter() - start)}\n")
+            # output_path = plot_output_path(__file__, f"{model_name}/{tiling_name}/energy_vs_chi_{tiling_name}_D={D}.pdf")
+            plot_energy_vs_chi(result["chi_values"], result["energies_per_peps_site_ctmrg"], D, title=f"{model['label']} — {tiling_name}", show=True) # output_path=output_path
+    print(f"\nTotal simulation time : {format_duration(simulation_time)}")
+    print(f"Total runtime : {format_duration(perf_counter() - start)}\n")
 
 
 if __name__ == "__main__":

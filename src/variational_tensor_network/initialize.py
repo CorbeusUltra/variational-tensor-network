@@ -1,5 +1,7 @@
 """Initialize the bulk states and their environments."""
 
+from typing import Literal
+
 import torch
 from torch import Tensor
 from torch.linalg import vector_norm
@@ -38,23 +40,26 @@ def initial_single_and_double_layer_sites(config: Config, sites_coords: tuple[Si
     return a_sites, A_sites
 
 
-def initial_env(delta: Tensor, A: Tensor, config: Config) -> Environment:
+def initial_env(delta: Tensor, A: Tensor, config: Config, method: Literal["ones", "from_bulk"] = "from_bulk") -> Environment:
     D2 = config.D2
     chi = config.chi
-    # C0 = torch.einsum("ijkl,k,l->ij", A, delta, delta) # a first possible intialisation
-    # T0 = torch.einsum("k,ijkl->lij", delta, A)
-    # if chi <= D2:
-    #     C = C0[:chi, :chi].clone()
-    #     T = T0[:chi, :, :chi].clone()
-    # else:
-    #     C = A.new_zeros((chi, chi))
-    #     T = A.new_zeros((chi, D2, chi))
-    #     C[:D2, :D2] = C0
-    #     T[:D2, :, :D2] = T0
-    C = torch.ones(chi,chi) # another possible initialisation
-    T = torch.ones(chi,D2,chi)
-    C_norm = vector_norm(C)
-    T_norm = vector_norm(T)
+    if method == "from_bulk": # a first possible intialisation
+        C0 = torch.einsum("ijkl,k,l->ij", A, delta, delta)
+        T0 = torch.einsum("k,ijkl->lij", delta, A)
+        if chi <= D2:
+            C = C0[:chi, :chi].clone()
+            T = T0[:chi, :, :chi].clone()
+        else:
+            C = A.new_zeros((chi, chi))
+            T = A.new_zeros((chi, D2, chi))
+            C[:D2, :D2] = C0
+            T[:D2, :, :D2] = T0
+    elif method == "ones": # another possible initialisation
+        C = torch.ones(chi,chi)
+        T = torch.ones(chi,D2,chi)
+    else:
+        raise ValueError(f"Unknown initialization method {method!r}. Expected 'from_bulk' or 'ones'.")
+    C_norm, T_norm = vector_norm(C), vector_norm(T)
     C /= C_norm
     T /= T_norm
     env = Environment(C,C,C,C,T,T,T,T,config)

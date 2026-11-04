@@ -10,7 +10,7 @@ from torch.linalg import vector_norm
 from .objects import BondWeights, SiteWeights
 from .observables import expectation_from_rdm, simple_update_rdms
 from .peps import TensorSites, get_site_weights, rotate_site_weights
-from .reporting import format_duration, format_scientific, print_progress
+from .reporting import format_duration, print_progress
 from .tilings import UnitCellCoord
 
 
@@ -51,6 +51,7 @@ def simple_update_iteration(a: Tensor, b: Tensor, weights_a: SiteWeights, weight
 
 
 def simple_update_sweep(a_sites: TensorSites, bond_weights: BondWeights, unitcell_coord: UnitCellCoord, G: Tensor) -> None:
+    """Update site tensors and bond weights in place during one sweep."""
     for site, direction in bond_weights:
         x, y = site
         if direction == "d":
@@ -76,18 +77,34 @@ def simple_update_sweep(a_sites: TensorSites, bond_weights: BondWeights, unitcel
         bond_weights[(site, direction)] = lambda_new
 
 
-def simple_update(a_sites: TensorSites, bond_weights: BondWeights, unitcell_coord: UnitCellCoord, H: Tensor, *, schedule: tuple[tuple[float, float], ...], max_sweeps: int = 10000, verbosity: int = 1) -> list[tuple[float, float]]:
+def simple_update(a_sites: TensorSites, bond_weights: BondWeights, unitcell_coord: UnitCellCoord, H: Tensor, *, schedule: tuple[tuple[float, float], ...], max_sweeps: int = 10000, verbosity: int = 1) -> tuple[TensorSites, BondWeights, dict]:
+    """Optimize a PEPS without modifying the input dictionaries or their tensors."""
     if max_sweeps < 1:
         raise ValueError("max_sweeps must be at least 1.")
-    history = []
+    if not schedule:
+        raise ValueError("schedule must contain at least one tau stage.")
+    if verbosity >= 1:
+        print("Simple update", flush=True)
+    total_start = perf_counter()
+    a_sites = a_sites.copy()
+    bond_weights = bond_weights.copy()
+    sweep_width = len(str(max_sweeps))
+    info = {
+        "schedule": schedule,
+        "max_sweeps_per_stage": max_sweeps,
+        "tau_error_history": [],
+        "energy_history": [],
+        "stages": [],
+    }
     d = next(iter(a_sites.values())).shape[-1]
     rdms = simple_update_rdms(a_sites, bond_weights, unitcell_coord)
     energies = {bond: expectation_from_rdm(rho, H).item() for bond, rho in rdms.items()}
-
+    info["initial_energy_per_peps_site"] = sum(energies.values()) / len(a_sites)
     for tau, tol in schedule:
         start = last_update = perf_counter()
+        update_interval = 0.1 if verbosity >= 3 else 1.0
         if verbosity >= 1:
-            print(f"\ntau={format_scientific(tau)}, tol={format_scientific(tol)}", flush=True)
+            print(f"\n  tau={tau:.2e}, tol={tol:.2e}", flush=True)
         G = torch.linalg.matrix_exp(-tau * H).reshape(d, d, d, d)
         converged = False
         for sweep in range(1, max_sweeps + 1):
@@ -97,16 +114,28 @@ def simple_update(a_sites: TensorSites, bond_weights: BondWeights, unitcell_coor
             energies = {bond: expectation_from_rdm(rho, H).item() for bond, rho in rdms.items()}
             # error = abs(sum(energies[bond] - old_energies[bond] for bond in energies)) # |∑_bonds (E_new - E_old)| ; tracks total unit-cell energy, but bond changes can cancel
             error = max(abs(energies[bond] - old_energies[bond]) for bond in energies) # max_bonds |E_new - E_old| ; requires every bond-energy change to be within tolerance
-            history.append((tau, error))
+            info["tau_error_history"].append((tau, error))
+            info["energy_history"].append(sum(energies.values()) / len(a_sites))
             now = perf_counter()
-            if sweep == 1 or now - last_update >= 1.0:
-                print_progress(f"  sweep={sweep}/{max_sweeps} | error={error:.2e} | time={format_duration(now - start)}", verbosity)
+            progress = f"    sweep={sweep:>{sweep_width}}/{max_sweeps} | error={error:9.2e} | time={format_duration(now - start)}"
+            if verbosity >= 4 or sweep == 1 or now - last_update >= update_interval:
+                print_progress(progress, verbosity)
                 last_update = now
             if error <= tol:
                 converged = True
                 break
-        status = "Converged" if converged else "Not converged"
-        print_progress(f"  {status} | sweep={sweep}/{max_sweeps} | error={error:.2e} | time={format_duration(perf_counter() - start)}", verbosity, final=True)
+        info["stages"].append({
+            "tau": tau,
+            "tolerance": tol,
+            "sweeps": sweep,
+            "final_error": error,
+            "duration": perf_counter() - start,
+            "status": "converged" if converged else "not_converged",
+        })
+        print_progress(progress, verbosity, final=True)
+        if verbosity >= 1:
+            status = "Tau stage converged" if converged else "Tau stage did not converge"
+            print(f"    {status}", flush=True)
         if not converged:
             D = next(iter(a_sites.values())).shape[0]
             warn(f"\n\nSimple update did not converge after {max_sweeps} sweeps "
@@ -116,5 +145,12 @@ def simple_update(a_sites: TensorSites, bond_weights: BondWeights, unitcell_coor
                 "Returning the last state and skipping any remaining tau stages.\n",
                 RuntimeWarning,
                 stacklevel=2)
-            return history
-    return history
+            break
+    info.update({
+        "status": "converged" if converged else "not_converged",
+        "duration": perf_counter() - total_start,
+        "energy_per_peps_site": sum(energies.values()) / len(a_sites),
+        "bond_energies": energies.copy(),
+        "total_sweeps": len(info["tau_error_history"]),
+    })
+    return a_sites, bond_weights, info

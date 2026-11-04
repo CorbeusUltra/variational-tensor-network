@@ -35,7 +35,7 @@ def get_halves(site: Site, A_sites: TensorSites, env_sites: EnvSites, unitcell_c
     return R, Rbar
 
 
-def get_projectors(R: Tensor, Rbar: Tensor, config: Config) -> tuple[Tensor, Tensor, Tensor]:
+def get_projectors(R: Tensor, Rbar: Tensor, config: Config) -> tuple[Tensor, Tensor]:
     RRbar    = einsum("abij,abkl->ijkl",R,Rbar)
     dim_i, dim_j, dim_k, dim_l = RRbar.shape
     r_left   = dim_i * dim_j
@@ -52,7 +52,7 @@ def get_projectors(R: Tensor, Rbar: Tensor, config: Config) -> tuple[Tensor, Ten
     if rank == 0:
         raise ValueError("M has no numerically significant singular values.")
     # print(f"\n\nlambda_0: {S[0]}\nlambda_1: {S[1]}\n")
-    xi = S.new_zeros(()) if rank == 1 else 1 / (torch.log(S[0]) - torch.log(S[1]))
+    # xi = S.new_zeros(()) if rank == 1 else 1 / (torch.log(S[0]) - torch.log(S[1]))
     p = min(config.chi, rank)
     U, S, V = U[:, :p], S[:p], V[:, :p]
     U = U.reshape(dim_i, dim_j, p)
@@ -60,7 +60,7 @@ def get_projectors(R: Tensor, Rbar: Tensor, config: Config) -> tuple[Tensor, Ten
     Srsqrt = S.rsqrt()
     P    = einsum("ijkl,klm->ijm", R   , U) * Srsqrt
     Pbar = einsum("ijkl,klm->ijm", Rbar, V) * Srsqrt
-    return P, Pbar, xi
+    return P, Pbar
 
 
 def absorb_left(site: Site, A_sites: TensorSites, env_sites: EnvSites, P_sites: TensorSites, Pbar_sites: TensorSites, unitcell_coord: UnitCellCoord) -> tuple[Tensor, Tensor, Tensor]:
@@ -77,17 +77,15 @@ def absorb_left(site: Site, A_sites: TensorSites, env_sites: EnvSites, P_sites: 
     return C_ul_new, T_l_new, C_dl_new
 
 
-def left_move_sites(A_sites: TensorSites, env_sites: EnvSites, unitcell_coord: UnitCellCoord, config: Config) -> tuple[EnvSites, TensorSites]:
+def left_move_sites(A_sites: TensorSites, env_sites: EnvSites, unitcell_coord: UnitCellCoord, config: Config) -> EnvSites:
     """Perform a left move, updating env_sites in place."""
     P_sites: TensorSites = {}
     Pbar_sites: TensorSites = {}
-    xi_sites: TensorSites = {}
     for site in A_sites:
         R,Rbar = get_halves(site, A_sites,env_sites, unitcell_coord)
-        P,Pbar, xi = get_projectors (R,Rbar,config)
+        P,Pbar = get_projectors (R,Rbar,config)
         P_sites[site] = P
         Pbar_sites[site] = Pbar
-        xi_sites[site] = xi
     C_ul_updates: TensorSites = {}
     T_l_updates: TensorSites = {}
     C_dl_updates: TensorSites = {}
@@ -101,7 +99,7 @@ def left_move_sites(A_sites: TensorSites, env_sites: EnvSites, unitcell_coord: U
         env_sites[site].C_ul = C_ul_updates[site]
         env_sites[site].T_l = T_l_updates[site]
         env_sites[site].C_dl = C_dl_updates[site]
-    return env_sites, xi_sites
+    return env_sites
 
 
 def rotated_sites(A_sites: TensorSites, env_sites: EnvSites, unitcell_coord: UnitCellCoord) -> tuple[TensorSites, EnvSites, Callable[[int, int], Site]]:
@@ -119,22 +117,17 @@ def rotated_sites(A_sites: TensorSites, env_sites: EnvSites, unitcell_coord: Uni
     return A_sites_rotated, env_sites_rotated, unitcell_coord_rotated
 
 
-def all_moves_sites(A_sites: TensorSites, env_sites: EnvSites, unitcell_coord: UnitCellCoord, config: Config) -> tuple[EnvSites, Tensor]:
-    xi_moves: list[Tensor] = []
+def all_moves_sites(A_sites: TensorSites, env_sites: EnvSites, unitcell_coord: UnitCellCoord, config: Config) -> EnvSites:
     for _ in range(4):
-        env_sites_new, xi_sites = left_move_sites(A_sites, env_sites, unitcell_coord, config)
-        xi_moves.append(torch.stack([xi_sites[site] for site in A_sites]))
+        env_sites_new = left_move_sites(A_sites, env_sites, unitcell_coord, config)
         A_sites, env_sites, unitcell_coord = rotated_sites(A_sites, env_sites_new, unitcell_coord)
-    return env_sites, torch.stack(xi_moves)
-
-
-
+    return env_sites
 
 
 
 # "Legacy" code from the single site CTMRG
 
-def left_move(A: Tensor, env: Environment, config: Config) -> tuple[Environment, Tensor]:
+def left_move(A: Tensor, env: Environment, config: Config) -> Environment:
     C_ur, C_ul, C_dl, C_dr, T_r, T_u, T_l, T_d = env
     Q_ul = einsum("IA,AJB,iaI,bJaj->ijBb", C_ul, T_u, T_l, A)
     Q_ur = einsum("BKC,CL,cKbk,Lcl->Bbkl", T_u, C_ur, A, T_r)
@@ -161,7 +154,7 @@ def left_move(A: Tensor, env: Environment, config: Config) -> tuple[Environment,
     if rank == 0:
         raise ValueError("M has no numerically significant singular values.")
     p = min(config.chi, rank)
-    xi = S.new_zeros(()) if rank == 1 else 1 / torch.log(S[0] / S[1])
+    # xi = S.new_zeros(()) if rank == 1 else 1 / torch.log(S[0] / S[1])
     U, S, V = U[:, :p], S[:p], V[:, :p]
     U = U.reshape(dim_i, dim_j, p)
     V = V.reshape(dim_k, dim_l, p)
@@ -175,15 +168,13 @@ def left_move(A: Tensor, env: Environment, config: Config) -> tuple[Environment,
     T_l_new /= norm(T_l_new)
     C_dl_new /= norm(C_dl_new)
     env_new = Environment(C_ur, C_ul_new, C_dl_new, C_dr, T_r, T_u, T_l_new, T_d, config)
-    return env_new, xi
+    return env_new
 
 
-def all_moves(A: Tensor, env: Environment, config: Config) -> tuple[Environment, Tensor]:
-    xi_moves: list[Tensor] = []
+def all_moves(A: Tensor, env: Environment, config: Config) -> Environment:
     for _ in range(4):
-        env, xi = left_move(A, env, config)
-        xi_moves.append(xi)
+        env = left_move(A, env, config)
         C_ur, C_ul, C_dl, C_dr, T_r, T_u, T_l, T_d = env
         env = Environment(C_dr, C_ur, C_ul, C_dl, T_d, T_r, T_u, T_l)
         A = A.permute(3, 0, 1, 2)
-    return env, torch.stack(xi_moves)
+    return env
