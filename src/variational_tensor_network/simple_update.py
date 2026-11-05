@@ -112,12 +112,13 @@ def simple_update(a_sites: TensorSites, bond_weights: BondWeights, unitcell_coor
             simple_update_sweep(a_sites, bond_weights, unitcell_coord, G)
             rdms = simple_update_rdms(a_sites, bond_weights, unitcell_coord)
             energies = {bond: expectation_from_rdm(rho, H).item() for bond, rho in rdms.items()}
+            energy_per_site = sum(energies.values()) / len(a_sites)
             # error = abs(sum(energies[bond] - old_energies[bond] for bond in energies)) # |∑_bonds (E_new - E_old)| ; tracks total unit-cell energy, but bond changes can cancel
             error = max(abs(energies[bond] - old_energies[bond]) for bond in energies) # max_bonds |E_new - E_old| ; requires every bond-energy change to be within tolerance
             info["tau_error_history"].append((tau, error))
             info["energy_history"].append(sum(energies.values()) / len(a_sites))
             now = perf_counter()
-            progress = f"    sweep={sweep:>{sweep_width}}/{max_sweeps} | error={error:9.2e} | time={format_duration(now - start)}"
+            progress = f"    sweep={sweep:>{sweep_width}}/{max_sweeps} | error={error:9.2e} | energy={energy_per_site:.12f} | time={format_duration(now - start)}"
             if verbosity >= 4 or sweep == 1 or now - last_update >= update_interval:
                 print_progress(progress, verbosity)
                 last_update = now
@@ -134,7 +135,7 @@ def simple_update(a_sites: TensorSites, bond_weights: BondWeights, unitcell_coor
         })
         print_progress(progress, verbosity, final=True)
         if verbosity >= 1:
-            status = "Tau stage converged" if converged else "Tau stage did not converge"
+            status = "tau stage converged" if converged else "tau stage did not converge"
             print(f"    {status}", flush=True)
         if not converged:
             D = next(iter(a_sites.values())).shape[0]

@@ -64,7 +64,7 @@ def ctmrg(env_sites: EnvSites, a_tilde_sites: TensorSites, unitcell_coord: UnitC
         info["stable_cycles_history"].append(stable_cycles)
         maximum_error = error.max().item()
         now = perf_counter()
-        progress = f"  cycle={cycle:>{cycle_width}}/{max_cycles} | error={maximum_error:9.2e} | stable={min(stable_cycles, required_stable_cycles)}/{required_stable_cycles} | energy={energy_per_site:.12f} | time={format_duration(now - start)}"
+        progress = f"  cycle={cycle:>{cycle_width}}/{max_cycles} | error={maximum_error:9.2e} | energy={energy_per_site:.12f} | stable={min(stable_cycles, required_stable_cycles)}/{required_stable_cycles} | time={format_duration(now - start)}"
         if verbosity >= 4 or cycle == 2 or now - last_update >= update_interval:
             print_progress(progress, verbosity)
             last_update = now

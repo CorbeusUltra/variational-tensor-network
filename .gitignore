@@ -16,4 +16,4 @@ wheels/
 /outputs/
 
 # Personnal
-run.slurm
+/memo_jed.md

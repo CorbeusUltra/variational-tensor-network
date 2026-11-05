@@ -29,22 +29,23 @@ def print_progress(message: str, verbosity: int = 1, *, final: bool = False) -> 
         print(message, flush=True)
 
 
-def print_scan_summary(results_by_D: dict[int, dict], tiling_name: str, schedule: tuple[tuple[float, float], ...]) -> None:
-    """Print optimization and energy results for each bond dimension."""
-    for D, result in results_by_D.items():
-        tau_error_history = result["tau_error_history"]
-        print(f"\n\n{tiling_name} | D={D}\n")
-        for tau, tolerance in schedule:
-            errors = [error for recorded_tau, error in tau_error_history if recorded_tau == tau]
-            print(f"tau={tau:.2e}, tolerance={tolerance:.2e}, sweeps: {len(errors)}")
-        print(f"total sweeps: {len(tau_error_history)}")
-        print(f"energy per PEPS site simple update : {result['energy_per_peps_site_su']:.12f}\n")
-        for chi, energy_per_peps_site_ctmrg in zip(result["chi_values"], result["energies_per_peps_site_ctmrg"]):
-            print(f"chi={chi}, Energy per PEPS site ctmrg={energy_per_peps_site_ctmrg:.12f}")
+def print_simulation_summary(su_info: dict, ctmrg_info_by_chi: dict) -> None:
+    """Print convergence and energy results for one SU and CTMRG simulation."""
+    for stage_index, (tau, tolerance) in enumerate(su_info["schedule"]):
+        if stage_index >= len(su_info["stages"]):
+            print(f"  tau={tau:.2e}, tol={tolerance:.2e} | not executed")
+            continue
+        stage = su_info["stages"][stage_index]
+        print(f"  tau={tau:.2e}, tol={tolerance:.2e} | sweeps={stage['sweeps']} | final error={stage['final_error']:.2e} | status={stage['status']} | time={format_duration(stage['duration'])}")
+    print(f"\n  Total sweeps: {su_info['total_sweeps']} | time={format_duration(su_info['duration'])}")
+    print_run_summary("Simple update", su_info)
+    for chi, info in ctmrg_info_by_chi.items():
+        print(f"  chi={chi} | cycles={info['total_cycles']} | final error={info['final_error']:.2e} | tol={info['tolerance']:.2e} | time={format_duration(info['duration'])}")
+        print_run_summary("CTMRG", info)
 
 
 def print_run_summary(name: str, diagnostics: dict, verbosity: int = 1) -> None:
-    """Display the termination status and final energy of a run."""
+    """Display the termination status of a run."""
     if verbosity < 1:
         return
     messages = {
@@ -53,8 +54,15 @@ def print_run_summary(name: str, diagnostics: dict, verbosity: int = 1) -> None:
         "fixed_iterations": "completed the requested fixed iterations",
     }
     status = messages[diagnostics["status"]]
-    energy = diagnostics["energy_per_peps_site"]
-    print(f"  {name} {status} | Energy per PEPS site: {energy:.12f}\n", flush=True)
+    print(f"  {name} {status}\n", flush=True)
+
+
+def print_boxed(message: str = ""):
+    """Display the message in a box for emphasis."""
+    dashes = "—"*len(message)
+    print("┌—"+dashes +"—┐")
+    print("│ "+message+" │")
+    print("└—"+dashes +"—┘")
 
 
 

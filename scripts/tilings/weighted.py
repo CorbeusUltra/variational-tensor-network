@@ -18,7 +18,7 @@ def main() -> None:
         a_sites = initial_a_sites(config, sites_coords)
         bond_weights = initial_bond_weights(a_sites)
         output_path = plot_output_path(__file__, f"{name}.pdf")
-        plot_weights(sites_coords, unitcell_coord, bond_weights, title = name, output_path=output_path)
+        plot_weights(sites_coords, unitcell_coord, bond_weights, title=name, show=True, output_path=output_path)
     print(f"\nExported {len(TILINGS)} diagrams in {perf_counter() - start:.2g} s.\n")
 
 

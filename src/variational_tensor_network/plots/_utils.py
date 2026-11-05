@@ -25,5 +25,7 @@ def plot_output_path(script_file: str, filename: str) -> Path:
     for root in script.parents:
         if (root / "pyproject.toml").is_file():
             relative_script = script.relative_to(root).with_suffix("")
+            if relative_script.parts[0] == "scripts":
+                relative_script = Path(*relative_script.parts[1:])
             return root / "outputs" / relative_script / filename
     raise ValueError("Cannot find a project root containing 'pyproject.toml'.")

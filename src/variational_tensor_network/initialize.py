@@ -40,10 +40,10 @@ def initial_single_and_double_layer_sites(config: Config, sites_coords: tuple[Si
     return a_sites, A_sites
 
 
-def initial_env(delta: Tensor, A: Tensor, config: Config, method: Literal["ones", "from_bulk"] = "from_bulk") -> Environment:
+def initial_env(delta: Tensor, A: Tensor, config: Config, method: Literal["from_bulk", "ones", "random"] = "from_bulk") -> Environment:
     D2 = config.D2
     chi = config.chi
-    if method == "from_bulk": # a first possible intialisation
+    if method == "from_bulk":
         C0 = torch.einsum("ijkl,k,l->ij", A, delta, delta)
         T0 = torch.einsum("k,ijkl->lij", delta, A)
         if chi <= D2:
@@ -54,11 +54,14 @@ def initial_env(delta: Tensor, A: Tensor, config: Config, method: Literal["ones"
             T = A.new_zeros((chi, D2, chi))
             C[:D2, :D2] = C0
             T[:D2, :, :D2] = T0
-    elif method == "ones": # another possible initialisation
+    elif method == "ones":
         C = torch.ones(chi,chi)
         T = torch.ones(chi,D2,chi)
+    elif method == "random":
+        C = torch.rand(chi,chi)
+        T = torch.rand(chi,D2,chi)
     else:
-        raise ValueError(f"Unknown initialization method {method!r}. Expected 'from_bulk' or 'ones'.")
+        raise ValueError(f"Unknown initialization method {method!r}. Expected 'from_bulk', 'ones' or 'random'.")
     C_norm, T_norm = vector_norm(C), vector_norm(T)
     C /= C_norm
     T /= T_norm

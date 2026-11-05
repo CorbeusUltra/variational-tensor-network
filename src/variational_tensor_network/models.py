@@ -50,7 +50,7 @@ def heisenberg_bond(J: float = 1.0, h: float = 0) -> Tensor:
     return H
 
 
-def ffb_bond(JD: float = 2.0, J: float = 1.0, h: float = 0) -> Tensor:
+def ffb_bond(JD: float = 3.0, J: float = 1.0, h: float = 0) -> Tensor:
     """
     Return the FFB bond between dimers (1, 2) and (3, 4), coupling all four inter-dimer spin pairs.
         1
@@ -107,7 +107,7 @@ def heisenberg_bond_bis(J: float = 1.0) -> Tensor:
     return (J / 4) * H
 
 
-def ffb_bond_bis(JD: float = 2.0, J: float = 1.0, h: float = 0) -> Tensor:
+def ffb_bond_bis(JD: float = 3.0, J: float = 1.0, h: float = 0) -> Tensor:
     """Return the reference FFB bond using total-dimer spin operators."""
     I = eye(4)
     Tz = Tensor([[1.0, 0.0, 0.0,  0.0],
