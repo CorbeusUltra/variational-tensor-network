@@ -23,6 +23,7 @@ def collect_convergence_sites(sites_coords: tuple[Site, ...], unitcell_coord: Un
 
 
 def main() -> None:
+    verbosity = 1
     model_name = "heisenberg" # "heisenberg", "ffb", "shastry_sutherland"
     tiling_name = "checkerboard" # "checkerboard", "abcd", "rectangle_2x3"
     D = 2  # 3, 4
@@ -30,16 +31,16 @@ def main() -> None:
     max_cycles = 100
     conv_tol = 1e-8
     stop_on_convergence = False
-    verbosity = 1
-
     parameters_by_model = {
         "heisenberg": {"J": 1.0, "h": 0},
         "ffb": {"JD": 2.0, "J": 1.0, "h": 0},
         "shastry_sutherland": {"JD": 2.0, "J": 1.0, "h": 0},
     }
+
     model = MODELS[model_name]
     parameters = parameters_by_model[model_name]
     parameters_text = ", ".join(f"{name}={value:g}" for name, value in parameters.items())
+    parameters_tag = "_".join(f"{name}={value:g}" for name, value in parameters.items())
     H = model["bond"](**parameters_by_model[model_name])
     torch.manual_seed(0)
     config = Config(d=model["d"], D=D, chi=chi)
@@ -48,7 +49,7 @@ def main() -> None:
     if verbosity >= 1 :
         print_boxed(f"{model['label']} (d={model['d']}) ({parameters_text}) | {tiling_name} | D={D}, chi={chi}")
         print_run_summary("CTMRG", info)
-    title = f"ctmrg_{model_name}_{tiling_name}_D={D}_chi={chi}"
+    title = f"ctmrg_{model_name}_{tiling_name}_D={D}_chi={chi}_{parameters_tag}"
     output_path = plot_output_path(__file__, title + ".pdf")
     plot_ctmrg_convergence_by_site(info["error_history"], info["threshold_history"], sites_coords, unitcell_coord, title=title, show=True, output_path=output_path)
     # errors, thresholds = collect_uniform_convergence(config, H)
