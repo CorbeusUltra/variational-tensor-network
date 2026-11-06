@@ -136,8 +136,8 @@ def left_move(A: Tensor, env: Environment, config: Config) -> Environment:
     R = einsum("ijBb,Bbkl->ijkl", Q_ul, Q_ur)
     Rbar = einsum("ijBb,Bbkl->ijkl", Q_dl, Q_dr)
     # # Works but not as efficient as the previous method using "quarters"
-    # R        = einsum("IA,AJB,BKC,CL,iaI,bJaj,cKbk,Lcl->ijkl", C_ul, T_u, T_u, C_ur, T_l, A, A, T_r)
-    # Rbar     = einsum("AI,BJA,CKB,LC,Iai,bjaJ,ckbK,lcL->ijkl", C_dl, T_d, T_d, C_dr, T_l, A, A, T_r)
+    # R    = einsum("IA,AJB,BKC,CL,iaI,bJaj,cKbk,Lcl->ijkl", C_ul, T_u, T_u, C_ur, T_l, A, A, T_r)
+    # Rbar = einsum("AI,BJA,CKB,LC,Iai,bjaJ,ckbK,lcL->ijkl", C_dl, T_d, T_d, C_dr, T_l, A, A, T_r)
     RRbar    = einsum("abij,abkl->ijkl",R,Rbar)
     dim_i, dim_j, dim_k, dim_l = RRbar.shape
     r_left   = dim_i * dim_j

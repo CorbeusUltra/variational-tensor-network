@@ -35,7 +35,7 @@ def print_tiling(sites_coord: tuple[Site, ...], unitcell_coord: UnitCellCoord, w
 
 
 
-def main():
+def main() -> None:
     start = perf_counter()
     config = Config()
     print(config)

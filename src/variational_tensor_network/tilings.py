@@ -51,7 +51,7 @@ TILINGS = {
 }
 
 
-def main():
+def main() -> None:
     TILING_NAME = "rectangle_2x3"
     sites_coords, unitcell_coord = TILINGS[TILING_NAME]
     print(f"unitcell_coord(2,3)={unitcell_coord(2,3)}")

@@ -19,13 +19,20 @@ def finish_plot(fig: Figure, title: str = "", show: bool = False, output_path: P
     plt.close(fig)
 
 
-def plot_output_path(script_file: str, filename: str) -> Path:
-    """Build a figure path under the project's outputs directory."""
+def find_project_root(script_file: str | Path) -> Path:
+    """Find the nearest parent directory containing pyproject.toml."""
     script = Path(script_file).resolve()
     for root in script.parents:
         if (root / "pyproject.toml").is_file():
-            relative_script = script.relative_to(root).with_suffix("")
-            if relative_script.parts[0] == "scripts":
-                relative_script = Path(*relative_script.parts[1:])
-            return root / "outputs" / relative_script / filename
+            return root
     raise ValueError("Cannot find a project root containing 'pyproject.toml'.")
+
+
+def plot_output_path(script_file: str, filename: str) -> Path:
+    """Build a figure path under the project's outputs directory."""
+    script = Path(script_file).resolve()
+    root = find_project_root(script)
+    relative_script = script.relative_to(root).with_suffix("")
+    if relative_script.parts[0] == "scripts":
+        relative_script = Path(*relative_script.parts[1:])
+    return root / "outputs" / relative_script / filename

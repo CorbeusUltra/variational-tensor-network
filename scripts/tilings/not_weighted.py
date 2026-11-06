@@ -14,7 +14,7 @@ def print_tiling(sites_coord: tuple[Site, ...], unitcell_coord: UnitCellCoord, w
 
 
 
-def main():
+def main() -> None:
     start = perf_counter()
     for name, (sites_coords, unitcell_coord) in TILINGS.items():
         print(f"\n\n[{name}] ({len(sites_coords)} sites)")

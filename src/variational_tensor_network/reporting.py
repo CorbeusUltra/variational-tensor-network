@@ -60,9 +60,11 @@ def print_run_summary(name: str, diagnostics: dict, verbosity: int = 1) -> None:
 def print_boxed(message: str = ""):
     """Display the message in a box for emphasis."""
     dashes = "—"*len(message)
+    print()
     print("┌—"+dashes +"—┐")
     print("│ "+message+" │")
     print("└—"+dashes +"—┘")
+    print()
 
 
 
