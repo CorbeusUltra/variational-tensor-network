@@ -18,7 +18,6 @@ def check_weights(sites_coords: tuple[Site, ...], unitcell_coord: UnitCellCoord,
         weights = get_site_weights(site, bond_weights, unitcell_coord)
         right = get_site_weights((x + 1, y), bond_weights, unitcell_coord)
         down = get_site_weights((x, y + 1), bond_weights, unitcell_coord)
-
         assert weights.r is right.l, f"Right bond is not shared at {site}."
         assert weights.d is down.u, f"Down bond is not shared at {site}."
 

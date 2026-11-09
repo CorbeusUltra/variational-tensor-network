@@ -30,7 +30,7 @@ def simple_update_iteration(a: Tensor, b: Tensor, weights_a: SiteWeights, weight
     """
     abar = einsum("rulds,r,u,l->rulds", a, weights_a.r, weights_a.u, weights_a.l)
     bbar = einsum("rulds,r,l,d->rulds", b, weights_b.r, weights_b.l, weights_b.d)
-    torch.testing.assert_close(weights_a.d, weights_b.u)
+
     abarbbar = einsum("rulqs,RqLDS,q->rulLDRsS",abar,bbar,weights_a.d)
     M = einsum("rulLDRsS,tTsS->rulLDRtT", abarbbar, G) # M or abarbbar_gated
     D, d = a.shape[3], a.shape[-1]

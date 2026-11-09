@@ -5,7 +5,7 @@ from dataclasses import replace  # noqa: I001
 from torch import Tensor
 
 from .ctmrg import ctmrg
-from .initialize import initial_a_sites, initial_bond_weights, initial_env_sites, uniform_boundary
+from .initialize import initial_a_sites, initial_bond_weights, initial_env_sites, initial_boundary
 from .objects import Config
 from .peps import absorb_sqrt_weights, double_layer, get_site_weights
 from .reporting import print_run_summary
@@ -29,7 +29,7 @@ def run_simulation(tiling_name: str, config: Config, H: Tensor, chi_values: list
     for chi_index, chi in enumerate(chi_values, start=1):
         label = f"CTMRG {chi_index:>{len(str(len(chi_values)))}}/{len(chi_values)}"
         config_chi = replace(config, chi=chi)
-        delta = uniform_boundary(config_chi)
+        delta = initial_boundary(config_chi)
         env_sites = initial_env_sites(A_sites, delta, config_chi)
         env_sites, ctmrg_info = ctmrg(env_sites, a_tilde_sites, unitcell_coord, config_chi, H, conv_tol=1e-8, verbosity=verbosity, label=label)
         ctmrg_info_by_chi[chi] = ctmrg_info

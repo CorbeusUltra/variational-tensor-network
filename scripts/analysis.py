@@ -16,12 +16,12 @@ from variational_tensor_network.simulation import run_simulation
 
 def main() -> None:
     verbosity = 1
-    model_name = "shastry_sutherland" # "heisenberg", "ffb", ""shastry_sutherland""
+    model_name = "heisenberg" # "heisenberg", "ffb", ""shastry_sutherland""
     tiling_names = ["checkerboard"] # "checkerboard", "abcd"
-    D_values = [2] # [2] ; [3] ; [4] ; [2, 3] ; [2, 4] ; [3, 4] ; [2, 3, 4]
-    n_chi = 6 # 10, 16, ...
-    chi_values_by_D = {D: [D**2 + D * i for i in range(n_chi)] for D in D_values} # {D: [16 + 2 * D**2 * i for i in range(n_chi)] for D in D_values}
-    schedule = ((.1, 1e-5),) # schedule = ((.01, 1e-6), (.001, 1e-7)) ; schedule = ((.001, 1e-7),) ; schedule = ((.1, 1e-5), (.01, 1e-7), (.001, 1e-8))
+    D_values = [3] # [2] ; [3] ; [4] ; [2, 3] ; [2, 4] ; [3, 4] ; [2, 3, 4]
+    n_chi = 4 # 6, 12, 16, 24 ...
+    chi_values_by_D = {D: [D**2 + i for i in range(n_chi)] for D in D_values} # chi_values_by_D = {D: [D**2 + D * i for i in range(n_chi)] for D in D_values} ; chi_values_by_D = {D: [16 + 2 * D**2 * i for i in range(n_chi)] for D in D_values} ; chi_values_by_D = {D: [D**2 + i for i in range(n_chi)] for D in D_values}
+    schedule = ((.01, 1e-4), (.001, 1e-6)) # schedule = ((.01, 1e-5),) ; schedule = ((.001, 1e-7),) ; schedule = ((.01, 1e-5), (.001, 1e-7)) ; schedule = ((.1, 1e-5), (.01, 1e-7), (.005, 1e-8))
     model = MODELS[model_name]
     d = model["d"]
     config = Config(d=d)
@@ -55,8 +55,8 @@ def main() -> None:
                 print(f"Peak RAM usage: {peak_memory_gib:.2f} GiB")
             energies = [ctmrg_info_by_chi[chi]["energy_per_peps_site"] for chi in chi_values]
             title = f"ctmrg_{model_name}_{tiling_name}_D={D}_{parameters_tag}"
-            output_path = plot_output_path(__file__, title + ".pdf")
-            plots_to_show.append(partial(plot_energy_vs_chi, chi_values, energies, D, title=title, show=False, output_path=output_path))
+            output_path = plot_output_path(__file__, title + ".pdf")  # noqa: F841
+            plots_to_show.append(partial(plot_energy_vs_chi, chi_values, energies, D, title=title, show=False, output_path=None))
     if verbosity >= 1:
         print(f"\nTotal simulation time : {format_duration(simulation_time)}\n")
     for show_plot in plots_to_show:

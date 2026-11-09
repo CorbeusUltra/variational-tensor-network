@@ -15,7 +15,7 @@ def check_tilings(sites_coords: tuple[Site, ...], unitcell_coord: UnitCellCoord,
     torch.manual_seed(0)
     a = initialize.initial_a(config)
     A = double_layer(a)
-    delta = initialize.uniform_boundary(config)
+    delta = initialize.initial_boundary(config)
     A_sites = {site: A for site in sites_coords}
     env_sites = initialize.initial_env_sites(A_sites, delta, config)
     env_reference = initialize.initial_env(delta, A, config)

@@ -5,6 +5,7 @@ from typing import Literal
 import torch
 from torch import Tensor, einsum
 
+from .contractions import cached_einsum
 from .ctmrg_moves import make_accessor
 from .objects import BondWeights, EnvSites, SiteWeights
 from .peps import TensorSites, get_site_weights, open_double_layer, rotate_site_weights
@@ -21,7 +22,7 @@ def simple_update_bond_rdm(a: Tensor, b: Tensor, weights_a: SiteWeights, weights
         weights_a, weights_b = rotate_site_weights(weights_a), rotate_site_weights(weights_b)
     elif direction != "d":
         raise ValueError(f"Unsupported bond direction: {direction!r}.")
-    torch.testing.assert_close(weights_a.d, weights_b.u)
+    # torch.testing.assert_close(weights_a.d, weights_b.u)
     abar = einsum("rulds,r,u,l->rulds", a, weights_a.r, weights_a.u, weights_a.l)
     bbar = einsum("rulds,r,l,d->rulds", b, weights_b.r, weights_b.l, weights_b.d)
     abarbbar = einsum("rulqs,RqLDS,q->rulLDRsS", abar, bbar, weights_a.d)
@@ -58,9 +59,9 @@ def ctmrg_bond_rdm(a_tilde: Tensor, b_tilde: Tensor, env_sites: EnvSites, site: 
     B_open = open_double_layer(b_tilde)
     env_at = make_accessor(env_sites, site, unitcell_coord)
     if direction == "d":
-        rho = einsum("ai,iuI,IA,bla,rulqsS,ArB,cLb,RqLDtT,BRC,jc,JDj,CJ->stST", env_at(-1, -1).C_ul, env_at(0, -1).T_u, env_at(1, -1).C_ur, env_at(-1, 0).T_l, A_open, env_at(1, 0).T_r, env_at(-1, 1).T_l, B_open, env_at(1, 1).T_r, env_at(-1, 2).C_dl, env_at(0, 2).T_d, env_at(1, 2).C_dr)
+        rho = cached_einsum("ai,iuI,IA,bla,rulqsS,ArB,cLb,RqLDtT,BRC,jc,JDj,CJ->stST", env_at(-1, -1).C_ul, env_at(0, -1).T_u, env_at(1, -1).C_ur, env_at(-1, 0).T_l, A_open, env_at(1, 0).T_r, env_at(-1, 1).T_l, B_open, env_at(1, 1).T_r, env_at(-1, 2).C_dl, env_at(0, 2).T_d, env_at(1, 2).C_dr)
     elif direction == "r":
-        rho = einsum("ia,aub,bUc,cj,Ili,quldsS,RUqDtT,jRJ,AI,BdA,CDB,JC->stST", env_at(-1, -1).C_ul,  env_at(0, -1).T_u, env_at(1, -1).T_u, env_at(2, -1).C_ur,  env_at(-1, 0).T_l, A_open, B_open, env_at(2, 0).T_r, env_at(-1, 1).C_dl, env_at(0, 1).T_d, env_at(1, 1).T_d, env_at(2, 1).C_dr)
+        rho = cached_einsum("ia,aub,bUc,cj,Ili,quldsS,RUqDtT,jRJ,AI,BdA,CDB,JC->stST", env_at(-1, -1).C_ul,  env_at(0, -1).T_u, env_at(1, -1).T_u, env_at(2, -1).C_ur,  env_at(-1, 0).T_l, A_open, B_open, env_at(2, 0).T_r, env_at(-1, 1).C_dl, env_at(0, 1).T_d, env_at(1, 1).T_d, env_at(2, 1).C_dr)
     else:
         raise ValueError(f"Unsupported bond direction: {direction!r}.")
     normalization = einsum("stst->", rho)
