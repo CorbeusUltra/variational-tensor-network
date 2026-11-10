@@ -21,7 +21,6 @@ def run_simple_update(model_name: str, parameters_by_model: dict[str, dict[str, 
     model = MODELS[model_name]
     parameters = parameters_by_model[model_name]
     parameters_text = ", ".join(f"{name}={value:g}" for name, value in parameters.items())
-    parameters_tag = "_".join(f"{name}={value:g}" for name, value in parameters.items())  # noqa: F841
     H = model["bond"](**parameters)
     config = Config(d=model["d"], D=D)
     sites_coords, unitcell_coord = TILINGS[tiling_name]
@@ -29,7 +28,6 @@ def run_simple_update(model_name: str, parameters_by_model: dict[str, dict[str, 
     heading = f"{model['label']} (d={config.d}) ({parameters_text}) | {tiling_name} | D={D}"
     if verbosity >= 1:
         print_boxed(heading)
-
     a_sites = initial_a_sites(config, sites_coords)
     bond_weights = initial_bond_weights(a_sites)
     a_sites, bond_weights, info = simple_update(a_sites, bond_weights, unitcell_coord, H, schedule=schedule, max_sweeps=max_sweeps, verbosity=verbosity)
@@ -70,24 +68,28 @@ def run_simple_update(model_name: str, parameters_by_model: dict[str, dict[str, 
             output_path = None
             if save_fig:
                 output_path = plot_output_path(__file__, title + ".pdf")
-            plot(info, title=title, show=show_fig, output_path=output_path)
+            plot(info, show=show_fig, output_path=output_path)
+
 
 
 def main() -> None:
-    verbosity = 1
     model_name = "heisenberg"  # "heisenberg", "ffb", "shastry_sutherland"
-    tiling_name = "checkerboard"  # "checkerboard", "abcd", "rectangle_2x3"
-    D = 2  # 3, 4
-    max_sweeps = 10000  # Maximum sweeps per tau stage
-    seed = 0
-    schedule = ((.1, 1e-5), (.01, 1e-6), (.001, 1e-7)) # schedule = ((.01, 1e-6), (.001, 1e-7)) ; schedule = ((.001, 1e-7),) ; schedule = ((.1, 1e-5), (.01, 1e-7), (.001, 1e-8))
     parameters_by_model = {
-        "heisenberg": {"J": 1.0, "h": 0},
-        "ffb": {"JD": 2.0, "J": 1.0, "h": 0},
+        "heisenberg":                    {"J": 1.0, "h": 0},
+        "ffb":                {"JD": 2.0, "J": 1.0, "h": 0},
         "shastry_sutherland": {"JD": 2.0, "J": 1.0, "h": 0},
     }
+    tiling_name = "checkerboard"  # "checkerboard", "abcd", "rectangle_2x3"
+    D = 2
+    seed = 0
+
+    max_sweeps = 10000
+    schedule = ((.1, 1e-5), (.01, 1e-6), (.001, 1e-7)) # schedule = ((.01, 1e-6), (.001, 1e-7)) ; schedule = ((.001, 1e-7),) ; schedule = ((.1, 1e-5), (.01, 1e-7), (.001, 1e-8))
+
+    verbosity = 1
     show_fig = False
     save_fig = False
+
     run_simple_update(model_name, parameters_by_model, tiling_name, D, seed, schedule, max_sweeps=max_sweeps, verbosity=verbosity, show_fig=show_fig, save_fig=save_fig)
 
 

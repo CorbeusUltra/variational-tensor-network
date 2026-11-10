@@ -9,9 +9,9 @@ from variational_tensor_network.plots._utils import find_project_root
 
 
 def main() -> None:
-    label = "before_opt_einsum"
+    label = "ctmrg_after_opt_einsum" # su_after_opt_einsum
     root = find_project_root(__file__)
-    script_path = root / "scripts" / "analysis.py"
+    script_path = root / "scripts" / "analysis" / "ctmrg.py" # simple_udpate
     output_dir = root / "outputs" / "profiling"
     output_dir.mkdir(parents=True, exist_ok=True)
     data_path = output_dir / f"cpu_{label}.prof"
