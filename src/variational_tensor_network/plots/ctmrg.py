@@ -54,7 +54,7 @@ def plot_ctmrg_convergence_by_site(errors: list[Tensor], thresholds: list[Tensor
 def plot_energy_vs_chi(chi_values: list[int], energies: list[float], D: int, title: str = "", show: bool = False, output_path: Path | None = None) -> None:
     fig, ax = plt.subplots()
     ax.plot(chi_values, energies, "s-b")
-    ax.set(xlabel=r"$\chi$", ylabel="Energy per PEPS site")
+    ax.set(xlabel=r"$\chi$", ylabel="Energy per spin")
     ax.set_xticks(chi_values)
     ax.ticklabel_format(axis="y", style="plain", useOffset=False)
     ax.set_axisbelow(True)

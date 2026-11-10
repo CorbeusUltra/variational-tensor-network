@@ -12,7 +12,7 @@ from variational_tensor_network.plots._utils import find_project_root
 def main() -> None:
     label = "ctmrg_after_opt_einsum" # su_after_opt_einsum
     root = find_project_root(__file__)
-    script_path = root / "scripts" / "analysis" / "ctmrg.py" # simple_udpate
+    script_path = root / "scripts" / "analysis" / "measure_peps.py" # optimize_peps | measure_peps
     output_dir = root / "outputs" / "profiling"
     output_dir.mkdir(parents=True, exist_ok=True)
     data_path = output_dir / f"memory_{label}.bin"

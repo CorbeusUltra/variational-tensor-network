@@ -130,26 +130,31 @@ MODELS = {
     "heisenberg": {
         "bond": heisenberg_bond,
         "d": 2,
+        "spins_per_peps_site": 1,
         "label": "Heisenberg",
     },
     "ffb": {
         "bond": ffb_bond,
         "d": 4,
+        "spins_per_peps_site": 2,
         "label": "Fully frustrated bilayer",
     },
     "shastry_sutherland": {
         "bond": shastry_sutherland_bond,
         "d": 4,
+        "spins_per_peps_site": 2,
         "label": "Shastry-Sutherland",
     },
     "heisenberg_bis": {
         "bond": heisenberg_bond_bis,
         "d": 2,
+        "spins_per_peps_site": 1,
         "label": "Heisenberg bis",
     },
     "ffb_bis": {
         "bond": ffb_bond_bis,
         "d": 4,
+        "spins_per_peps_site": 2,
         "label": "Fully frustrated bilayer bis",
     },
 }

@@ -9,8 +9,9 @@ from torch import Tensor, stack
 
 from .ctmrg_moves import all_moves_sites
 from .objects import Config, EnvSites
-from .observables import ctmrg_rdms, expectation_from_rdm
+from .observables import expectation_from_rdm
 from .peps import TensorSites, double_layer
+from .rdms import ctmrg_rdms
 from .reporting import format_duration, print_progress
 from .tilings import UnitCellCoord
 
@@ -27,7 +28,7 @@ def ctmrg(env_sites: EnvSites, a_tilde_sites: TensorSites, unitcell_coord: UnitC
     update_interval = 0.1 if verbosity >= 3 else 1.0
     if verbosity >= 1:
         print(f"\n{label} | chi={config.chi} | tol={conv_tol:.2e}", flush=True)
-    print_progress(f"  cycle={1:>{cycle_width}}/{max_cycles} | first cycle and energy measurement...", verbosity)
+    print_progress(f"  cycle={1:>{cycle_width}}/{max_cycles} | first cycle", verbosity)
     A_sites = {site: double_layer(a_tilde) for site, a_tilde in a_tilde_sites.items()}
     env_sites = all_moves_sites(A_sites, env_sites, unitcell_coord, config)
     rdms = ctmrg_rdms(a_tilde_sites, env_sites, unitcell_coord)
@@ -53,8 +54,8 @@ def ctmrg(env_sites: EnvSites, a_tilde_sites: TensorSites, unitcell_coord: UnitC
         env_sites = all_moves_sites(A_sites, env_sites, unitcell_coord, config)
         rdms = ctmrg_rdms(a_tilde_sites, env_sites, unitcell_coord)
         energies = stack([expectation_from_rdm(rho, H) for rho in rdms.values()]).reshape(len(a_tilde_sites), 2)
-        energy_per_site = energies.sum().item() / len(a_tilde_sites)
-        info["energy_history"].append(energy_per_site)
+        energy_per_peps_site = energies.sum().item() / len(a_tilde_sites)
+        info["energy_history"].append(energy_per_peps_site)
         error = (energies - old_energies).abs().amax(dim=1)
         threshold = torch.full_like(error, conv_tol)
         errors.append(error.clone())
@@ -64,7 +65,7 @@ def ctmrg(env_sites: EnvSites, a_tilde_sites: TensorSites, unitcell_coord: UnitC
         info["stable_cycles_history"].append(stable_cycles)
         maximum_error = error.max().item()
         now = perf_counter()
-        progress = f"  cycle={cycle:>{cycle_width}}/{max_cycles} | error={maximum_error:9.2e} | energy={energy_per_site:.12f} | stable={min(stable_cycles, required_stable_cycles)}/{required_stable_cycles} | time={format_duration(now - start)}"
+        progress = f"  cycle={cycle:>{cycle_width}}/{max_cycles} | error={maximum_error:9.2e} | stable={min(stable_cycles, required_stable_cycles)}/{required_stable_cycles} | time={format_duration(now - start)}\n"
         if verbosity >= 4 or cycle == 2 or now - last_update >= update_interval:
             print_progress(progress, verbosity)
             last_update = now
@@ -96,7 +97,8 @@ def ctmrg(env_sites: EnvSites, a_tilde_sites: TensorSites, unitcell_coord: UnitC
         "total_cycles": cycle,
         "final_error": maximum_error,
         "stable_cycles": stable_cycles,
-        "energy_per_peps_site": energy_per_site,
+        "energy_per_peps_site": energy_per_peps_site,
         "bond_energies": dict(zip(rdms, energies.detach().cpu().reshape(-1).tolist())),
+        "bond_rdms": {bond: rho for bond, rho in rdms.items()},
     })
     return env_sites, info

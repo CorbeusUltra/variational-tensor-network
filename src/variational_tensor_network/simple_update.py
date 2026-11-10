@@ -8,8 +8,9 @@ from torch import Tensor, einsum
 from torch.linalg import vector_norm
 
 from .objects import BondWeights, SiteWeights
-from .observables import expectation_from_rdm, simple_update_rdms
+from .observables import expectation_from_rdm
 from .peps import TensorSites, get_site_weights, rotate_site_weights
+from .rdms import simple_update_rdms
 from .reporting import format_duration, print_progress
 from .tilings import UnitCellCoord
 
@@ -77,7 +78,7 @@ def simple_update_sweep(a_sites: TensorSites, bond_weights: BondWeights, unitcel
         bond_weights[(site, direction)] = lambda_new
 
 
-def simple_update(a_sites: TensorSites, bond_weights: BondWeights, unitcell_coord: UnitCellCoord, H: Tensor, *, schedule: tuple[tuple[float, float], ...], max_sweeps: int = 10000, verbosity: int = 1) -> tuple[TensorSites, BondWeights, dict]:
+def simple_update(a_sites: TensorSites, bond_weights: BondWeights, unitcell_coord: UnitCellCoord, H: Tensor, *, schedule: tuple[tuple[float, float], ...] = ((.1, 1e-5), (.01, 1e-6), (.001, 1e-7)), max_sweeps: int = 10000, verbosity: int = 1) -> tuple[TensorSites, BondWeights, dict]:
     """Optimize a PEPS without modifying the input dictionaries or their tensors."""
     if max_sweeps < 1:
         raise ValueError("max_sweeps must be at least 1.")
@@ -112,13 +113,13 @@ def simple_update(a_sites: TensorSites, bond_weights: BondWeights, unitcell_coor
             simple_update_sweep(a_sites, bond_weights, unitcell_coord, G)
             rdms = simple_update_rdms(a_sites, bond_weights, unitcell_coord)
             energies = {bond: expectation_from_rdm(rho, H).item() for bond, rho in rdms.items()}
-            energy_per_site = sum(energies.values()) / len(a_sites)
+            energy_per_peps_site = sum(energies.values()) / len(a_sites)
             # error = abs(sum(energies[bond] - old_energies[bond] for bond in energies)) # |∑_bonds (E_new - E_old)| ; tracks total unit-cell energy, but bond changes can cancel
             error = max(abs(energies[bond] - old_energies[bond]) for bond in energies) # max_bonds |E_new - E_old| ; requires every bond-energy change to be within tolerance
             info["tau_error_history"].append((tau, error))
-            info["energy_history"].append(sum(energies.values()) / len(a_sites))
+            info["energy_history"].append(energy_per_peps_site)
             now = perf_counter()
-            progress = f"    sweep={sweep:>{sweep_width}}/{max_sweeps} | error={error:9.2e} | energy={energy_per_site:.12f} | time={format_duration(now - start)}"
+            progress = f"    sweep={sweep:>{sweep_width}}/{max_sweeps} | error={error:9.2e} | time={format_duration(now - start)}"
             if verbosity >= 4 or sweep == 1 or now - last_update >= update_interval:
                 print_progress(progress, verbosity)
                 last_update = now
@@ -150,7 +151,7 @@ def simple_update(a_sites: TensorSites, bond_weights: BondWeights, unitcell_coor
     info.update({
         "status": "converged" if converged else "not_converged",
         "duration": perf_counter() - total_start,
-        "energy_per_peps_site": sum(energies.values()) / len(a_sites),
+        "energy_per_peps_site": energy_per_peps_site,
         "bond_energies": energies.copy(),
         "total_sweeps": len(info["tau_error_history"]),
     })
