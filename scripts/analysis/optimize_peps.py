@@ -19,7 +19,7 @@ def main() -> None:
     max_sweeps = 10000
     schedule = ((.1, 1e-4), (.01, 1e-6), (.001, 1e-8)) # schedule = ((.01, 1e-6), (.001, 1e-7)) ; schedule = ((.001, 1e-7),) ; schedule = ((.1, 1e-5), (.01, 1e-7), (.001, 1e-8))
 
-    verbosity = 1
+    verbosity = 2
     show_fig = True
     save_fig = True
 

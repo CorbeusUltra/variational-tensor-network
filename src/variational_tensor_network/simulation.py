@@ -96,7 +96,7 @@ def run_simple_update(model_name: str, parameters_by_model: dict[str, dict[str, 
         parameters_tag = "_".join(f"{key}={value}" for key, value in metadata["parameters"].items())
         plot_tag = f"{metadata['model']}_{metadata['tiling']}_D={metadata['D']}_{parameters_tag}_seed={metadata['seed']}"
         for prefix, plot in (("su", plot_simple_update), ("su_by_stage", plot_simple_update_by_stage)):
-            output_path = root / "outputs" / "analysis" / f"{prefix}_{plot_tag}.pdf" if save_fig else None
+            output_path = root / "outputs" / "analysis" / f"{prefix}_{plot_tag}" if save_fig else None
             plot(info, show=show_fig, output_path=output_path)
     return state_path, state
 
@@ -164,17 +164,18 @@ def run_ctmrg(model_name: str, parameters_by_model: dict[str, dict[str, float]],
             rdms = info["bond_rdms"]
             n_spins_bonds = 2 * spins_per_peps_site
             for bond, rho in rdms.items():
-                print(f"  PEPS bond {bond} ")
-                for i, j in combinations(range(1, n_spins_bonds + 1), 2):
-                    correlation = spin_spin_correlation(i, j, n_spins_bonds, rho)
-                    print(f"    spins ({i}, {j}) | <S_{i} · S_{j}> = {correlation:+.12f}")
-                for i in range(1, n_spins_bonds + 1):
-                    _, direction = bond
-                    if direction == "r":
+                site, direction = bond
+                if direction == "r":
+                    print(f"\n  PEPS site : {site} ")
+                    for i in range(1, n_spins_bonds + 1):
                         m_z = magnetization_z(i,n_spins_bonds, rho)
                         m_x = magnetization_x(i,n_spins_bonds, rho)
-                        print(f"    spin ({i}) | <S_{i}^z> : {m_z:+.12f} | <S_{i}^x> : {m_x:+.12f}")
-            print(f"  Energy per spin: {energy_per_spin:.12f}")
+                        print(f"    spin {i} | <S_{i}^z> : {m_z:+.12f} | <S_{i}^x> : {m_x:+.12f}")
+                print(f"\n    bond direction : {direction}")
+                for i, j in combinations(range(1, n_spins_bonds + 1), 2):
+                    correlation = spin_spin_correlation(i, j, n_spins_bonds, rho)
+                    print(f"      spin couple ({i}, {j}) | <S_{i}·S_{j}> = {correlation:+.12f}")
+            print(f"\n  Energy per spin: {energy_per_spin:.12f}\n")
     if not (show_fig or save_fig):
         return
     converged_chi = [chi for chi in chi_values if info_by_chi[chi]["status"] == "converged"]
@@ -183,11 +184,11 @@ def run_ctmrg(model_name: str, parameters_by_model: dict[str, dict[str, float]],
     if len(converged_chi) >= 4:
         energies = [info_by_chi[chi]["energy_per_peps_site"] / spins_per_peps_site for chi in converged_chi]
         name = f"ctmrg_energy_vs_chi_{plot_tag}"
-        output_path = root / "outputs" / "analysis" / f"{name}.pdf" if save_fig else None
+        output_path = root / "outputs" / "analysis" / name if save_fig else None
         plot_energy_vs_chi(converged_chi, energies, metadata["D"], show=show_fig, output_path=output_path)
     if convergence_chi is not None:
         info = info_by_chi[convergence_chi]
         errors = [error.max().item() for error in info["error_history"]]
         name = f"ctmrg_convergence_{plot_tag}_chi={convergence_chi}_tol={conv_tol:.0e}"
-        output_path = root / "outputs" / "analysis" / f"{name}.pdf" if save_fig else None
+        output_path = root / "outputs" / "analysis" / name if save_fig else None
         plot_ctmrg_convergence(errors, show=show_fig, output_path=output_path)

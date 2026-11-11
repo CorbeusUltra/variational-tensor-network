@@ -18,12 +18,12 @@ def main() -> None:
 
     n_chi = 10
     chi_values = [16 + D * i for i in range(n_chi)] # chi_values_by_D = {D: [D**2 + i for i in range(n_chi)] for D in D_values} ; chi_values_by_D = {D: [D**2 + D * i for i in range(n_chi)] for D in D_values} ; chi_values_by_D = {D: [16 + 2 * D**2 * i for i in range(n_chi)] for D in D_values} ; chi_values_by_D = {D: [16 + D * i for i in range(n_chi)] for D in D_values}
-    chi_values = [chi_values[-1]]
+    # chi_values = [chi_values[-1]]
     convergence_chi = chi_values[-1]  # chi_values[-1] | None
     conv_tol = 1e-8
     max_cycles = 2000
 
-    verbosity = 1
+    verbosity = 2
     show_fig = False
     save_fig = False
 

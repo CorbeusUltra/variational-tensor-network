@@ -21,7 +21,7 @@ def main() -> None:
         print()
         print_tiling(sites_coords, unitcell_coord)
         print()
-        output_path = plot_output_path(__file__, f"{name}.pdf")
+        output_path = plot_output_path(__file__, name)
         plot_tiling(sites_coords, unitcell_coord, size=6, title=name, show=True, output_path=output_path)
     print(f"\nExported {len(TILINGS)} diagrams in {perf_counter() - start:.2f} s.\n")
 

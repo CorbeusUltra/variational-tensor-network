@@ -1,5 +1,6 @@
 """Shared helpers for displaying and saving figures."""
 
+import pickle
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -12,8 +13,13 @@ def finish_plot(fig: Figure, title: str = "", show: bool = False, output_path: P
     fig.tight_layout()
     if output_path is not None:
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        fig.savefig(output_path)
-        print(f"\nFigure saved under '{output_path}'.\n")
+        pkl_dir = output_path.parent / ".pkl"
+        pkl_dir.mkdir(parents=True, exist_ok=True)
+        with (pkl_dir / f"{output_path.name}.pkl").open("wb") as f:
+            pickle.dump(fig, f)
+        pdf_path = Path(f"{output_path}.pdf")
+        fig.savefig(pdf_path)
+        print(f"\nFigure saved under '{pdf_path}'.\n")
     if show:
         plt.show()
     plt.close(fig)
