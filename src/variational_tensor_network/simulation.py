@@ -3,6 +3,7 @@
 import json
 from collections.abc import Iterator
 from hashlib import sha256
+from itertools import combinations
 from math import isfinite
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -19,8 +20,9 @@ from variational_tensor_network.initialize import (
 from variational_tensor_network.models import MODELS
 from variational_tensor_network.objects import Config
 from variational_tensor_network.observables import (
-    magnetization_z_per_spin,
-    mean_spin_spin_correlation,
+    magnetization_x,
+    magnetization_z,
+    spin_spin_correlation,
 )
 from variational_tensor_network.peps import (
     absorb_sqrt_weights,
@@ -33,21 +35,23 @@ from variational_tensor_network.plots import (
     plot_simple_update,
     plot_simple_update_by_stage,
 )
-from variational_tensor_network.plots._utils import find_project_root, plot_output_path
+from variational_tensor_network.plots._utils import find_project_root
 from variational_tensor_network.reporting import print_boxed, print_run_summary
 from variational_tensor_network.simple_update import simple_update
 from variational_tensor_network.tilings import TILINGS
 
 
-def run_simple_update(model_name: str, parameters_by_model: dict[str, dict[str, float]], tiling_name: str, D: int, seed: int, schedule: tuple[tuple[float, float], ...] = ((.1, 1e-5), (.01, 1e-6), (.001, 1e-7)), *, max_sweeps: int = 10000, verbosity: int = 1, show_fig: bool, save_fig: bool) -> tuple[Path, dict]:
+def run_simple_update(model_name: str, parameters_by_model: dict[str, dict[str, float]], tiling_name: str, D: int, seed: int, schedule: tuple[tuple[float, float], ...] = ((.1, 1e-4), (.01, 1e-6), (.001, 1e-8)), *, max_sweeps: int = 10000, verbosity: int = 1, show_fig: bool, save_fig: bool) -> tuple[Path, dict]:
     model = MODELS[model_name]
     parameters = parameters_by_model[model_name]
+    parameters = {name: float(value) for name, value in parameters.items()}
     parameters_text = ", ".join(f"{name}={value:g}" for name, value in parameters.items())
     H = model["bond"](**parameters)
-    config = Config(d=model["d"], D=D)
+    d = model["d"]
+    config = Config(d=d, D=D)
     sites_coords, unitcell_coord = TILINGS[tiling_name]
     torch.manual_seed(seed)
-    heading = f"{model['label']} (d={config.d}) ({parameters_text}) | {tiling_name} | D={D}"
+    heading = f"{model['label']} ({parameters_text}) | {tiling_name} | (D={D}, d={d})"
     if verbosity >= 1:
         print_boxed(heading)
     a_sites = initial_a_sites(config, sites_coords)
@@ -61,7 +65,7 @@ def run_simple_update(model_name: str, parameters_by_model: dict[str, dict[str, 
     metadata = {
         "schema": 1,
         "model": model_name,
-        "parameters": dict(parameters),
+        "parameters": parameters,
         "tiling": tiling_name,
         "D": config.D,
         "d": config.d,
@@ -72,7 +76,7 @@ def run_simple_update(model_name: str, parameters_by_model: dict[str, dict[str, 
         "max_sweeps": max_sweeps,
     }
     key = json.dumps(metadata, sort_keys=True).encode("utf-8")
-    tag = sha256(key).hexdigest()[:25]
+    tag = sha256(key).hexdigest()
     root = find_project_root(__file__)
     output_dir = root / "data" / "simple_update"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -89,7 +93,7 @@ def run_simple_update(model_name: str, parameters_by_model: dict[str, dict[str, 
     if verbosity >= 1:
         print(f"\nSimple update saved under '{state_path}'.\n", flush=True)
     if show_fig or save_fig:
-        parameters_tag = "_".join(f"{key}={value}" for key, value in sorted(metadata["parameters"].items()))
+        parameters_tag = "_".join(f"{key}={value}" for key, value in metadata["parameters"].items())
         plot_tag = f"{metadata['model']}_{metadata['tiling']}_D={metadata['D']}_{parameters_tag}_seed={metadata['seed']}"
         for prefix, plot in (("su", plot_simple_update), ("su_by_stage", plot_simple_update_by_stage)):
             output_path = root / "outputs" / "analysis" / f"{prefix}_{plot_tag}.pdf" if save_fig else None
@@ -124,6 +128,11 @@ def run_ctmrg(model_name: str, parameters_by_model: dict[str, dict[str, float]],
         if verbosity >= 1:
             print("\nNo converged saved state found. Running Simple Update.", flush=True)
         selected = run_simple_update(model_name, parameters_by_model, tiling_name, D, seed, verbosity=verbosity, show_fig=False, save_fig=False)
+    elif verbosity >= 1:
+        model = MODELS[model_name]
+        parameters_text = ", ".join(f"{name}={value:g}" for name, value in parameters.items())
+        heading = f"{model['label']} ({parameters_text}) | {tiling_name} | (D={D}, d={model["d"]})"
+        print_boxed(heading)
     state_path, state = selected
     su_info = state["su_info"]
     if not(su_info["status"] == "converged" and isfinite(su_info["energy_per_peps_site"])):
@@ -153,15 +162,23 @@ def run_ctmrg(model_name: str, parameters_by_model: dict[str, dict[str, float]],
         if verbosity >= 1:
             energy_per_spin = info["energy_per_peps_site"] / spins_per_peps_site
             rdms = info["bond_rdms"]
-            m_z = magnetization_z_per_spin(rdms, spins_per_peps_site)
-            c_zz = mean_spin_spin_correlation(rdms, spins_per_peps_site)
+            n_spins_bonds = 2 * spins_per_peps_site
+            for bond, rho in rdms.items():
+                print(f"  PEPS bond {bond} ")
+                for i, j in combinations(range(1, n_spins_bonds + 1), 2):
+                    correlation = spin_spin_correlation(i, j, n_spins_bonds, rho)
+                    print(f"    spins ({i}, {j}) | <S_{i} · S_{j}> = {correlation:+.12f}")
+                for i in range(1, n_spins_bonds + 1):
+                    _, direction = bond
+                    if direction == "r":
+                        m_z = magnetization_z(i,n_spins_bonds, rho)
+                        m_x = magnetization_x(i,n_spins_bonds, rho)
+                        print(f"    spin ({i}) | <S_{i}^z> : {m_z:+.12f} | <S_{i}^x> : {m_x:+.12f}")
             print(f"  Energy per spin: {energy_per_spin:.12f}")
-            print(f"  Magnetization z per spin: {m_z:+.12f}")
-            print(f"  Mean spin-spin correlation between PEPS sites: {c_zz:+.12f}\n", flush=True)
     if not (show_fig or save_fig):
         return
     converged_chi = [chi for chi in chi_values if info_by_chi[chi]["status"] == "converged"]
-    parameters_tag = "_".join(f"{key}={value}" for key, value in sorted(metadata["parameters"].items()))
+    parameters_tag = "_".join(f"{key}={value}" for key, value in metadata["parameters"].items())
     plot_tag = f"{metadata['model']}_{metadata['tiling']}_D={metadata['D']}_{parameters_tag}_seed={metadata['seed']}"
     if len(converged_chi) >= 4:
         energies = [info_by_chi[chi]["energy_per_peps_site"] / spins_per_peps_site for chi in converged_chi]

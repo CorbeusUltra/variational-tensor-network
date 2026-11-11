@@ -4,18 +4,21 @@ from variational_tensor_network.simulation import run_ctmrg
 
 
 def main() -> None:
-    model_name = "ffb"  # "heisenberg", "ffb", "shastry_sutherland"
+    model_name = "ffb"  # "heisenberg", "shastry_sutherland", "ffb"
+    JD = 1.0
+    J = JD/4
     parameters_by_model = {
-        "heisenberg":                    {"J": 1.0, "h": 0},  # Expected energy per spin : −0.669441857(7) * J
-        "shastry_sutherland": {"JD": 8.0, "J": 1.0, "h": 0},  # Expected energy per spin : -3/8 * JD  valid for J/JD <≈ 0.429(6)
-        "ffb":                {"JD": 8.0, "J": 1.0, "h": 0},  # Expected energy per spin : -3/8 * JD  valid for J/JD <≈ 0,675(2)
+        "heisenberg":                   {"J": J, "h": 0.0},  # Expected energy per spin : −0.669441857(7) * J
+        "shastry_sutherland": {"JD": JD, "J": J, "h": 1.6},  # Expected energy per spin : -3/8 * JD  valid for J/JD <≈ 0.429(6)
+        "ffb":                {"JD": JD, "J": J, "h": 2.5},  # Expected energy per spin : -3/8 * JD  valid for J/JD <≈ 0,675(2)
     }
-    tiling_name = "checkerboard"  # "checkerboard", "abcd", "rectangle_2x3"
+    tiling_name = "abcd"  # "checkerboard", "abcd", "rectangle_2x3"
     D = 2
     seed = 0
 
     n_chi = 10
     chi_values = [16 + D * i for i in range(n_chi)] # chi_values_by_D = {D: [D**2 + i for i in range(n_chi)] for D in D_values} ; chi_values_by_D = {D: [D**2 + D * i for i in range(n_chi)] for D in D_values} ; chi_values_by_D = {D: [16 + 2 * D**2 * i for i in range(n_chi)] for D in D_values} ; chi_values_by_D = {D: [16 + D * i for i in range(n_chi)] for D in D_values}
+    chi_values = [chi_values[-1]]
     convergence_chi = chi_values[-1]  # chi_values[-1] | None
     conv_tol = 1e-8
     max_cycles = 2000

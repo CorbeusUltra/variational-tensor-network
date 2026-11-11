@@ -54,7 +54,7 @@ def print_run_summary(name: str, diagnostics: dict, verbosity: int = 1) -> None:
         "fixed_iterations": "completed the requested fixed iterations",
     }
     status = messages[diagnostics["status"]]
-    print(f"  {name} {status}\n", flush=True)
+    print(f"  {name} {status}", flush=True)
 
 
 def print_boxed(message: str = ""):
