@@ -10,7 +10,7 @@ import opt_einsum as oe
 from opt_einsum.contract import ContractExpression
 from torch import Tensor
 
-from .plots._utils import find_project_root
+from ._utils.path import find_project_root
 
 CACHE_DIR = find_project_root(__file__) / "data" / "contraction_paths"
 type Shapes = tuple[tuple[int, ...], ...]

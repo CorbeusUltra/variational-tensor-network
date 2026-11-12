@@ -2,8 +2,9 @@
 
 from time import perf_counter
 
+from variational_tensor_network._utils.path import find_project_root
 from variational_tensor_network.ctmrg_moves import UnitCellCoord
-from variational_tensor_network.plots import plot_output_path, plot_tiling
+from variational_tensor_network.plots.tilings import plot_tiling
 from variational_tensor_network.tilings import TILINGS, Site
 
 
@@ -21,7 +22,8 @@ def main() -> None:
         print()
         print_tiling(sites_coords, unitcell_coord)
         print()
-        output_path = plot_output_path(__file__, name)
+        root = find_project_root(__file__)
+        output_path = root / "outputs" / "figures" / "tilings" / "not_weighted" / name
         plot_tiling(sites_coords, unitcell_coord, size=6, title=name, show=True, output_path=output_path)
     print(f"\nExported {len(TILINGS)} diagrams in {perf_counter() - start:.2f} s.\n")
 

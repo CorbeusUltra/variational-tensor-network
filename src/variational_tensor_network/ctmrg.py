@@ -7,16 +7,16 @@ from warnings import warn
 import torch
 from torch import Tensor, stack
 
+from ._utils.reporting import format_duration, print_progress
 from .ctmrg_moves import all_moves_sites
 from .objects import Config, EnvSites
 from .observables import expectation_from_rdm
 from .peps import TensorSites, double_layer
 from .rdms import ctmrg_rdms
-from .reporting import format_duration, print_progress
 from .tilings import UnitCellCoord
 
 
-def ctmrg(env_sites: EnvSites, a_tilde_sites: TensorSites, unitcell_coord: UnitCellCoord, config: Config, H: Tensor, *, stop_on_convergence: bool = True, max_cycles: int = 2000, conv_tol: float = 1e-6, required_stable_cycles: int = 10, verbosity: int = 1, label: str = "CTMRG") -> tuple[EnvSites, dict]:
+def ctmrg(env_sites: EnvSites, a_tilde_sites: TensorSites, unitcell_coord: UnitCellCoord, config: Config, H: Tensor, *, stop_on_convergence: bool = True, max_cycles: int = 2000, conv_tol: float = 1e-7, required_stable_cycles: int = 10, verbosity: int = 1, label: str = "CTMRG") -> tuple[EnvSites, dict]:
     """Compute final environments without modifying the input environments or bulk tensors."""
     if max_cycles < 2:
         raise ValueError("max_cycles must be at least 2.")
@@ -37,7 +37,6 @@ def ctmrg(env_sites: EnvSites, a_tilde_sites: TensorSites, unitcell_coord: UnitC
     info = {
         "D": config.D,
         "chi": config.chi,
-        "sites": tuple(a_tilde_sites),
         "tolerance": conv_tol,
         "max_cycles": max_cycles,
         "stop_on_convergence": stop_on_convergence,

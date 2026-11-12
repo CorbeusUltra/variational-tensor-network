@@ -6,21 +6,20 @@ import sys
 
 import memray
 
-from variational_tensor_network.plots._utils import find_project_root
+from variational_tensor_network._utils.path import find_project_root
 
 
 def main() -> None:
-    label = "ctmrg_after_opt_einsum" # su_after_opt_einsum
     root = find_project_root(__file__)
     script_path = root / "scripts" / "analysis" / "measure_peps.py" # optimize_peps | measure_peps
     output_dir = root / "outputs" / "profiling"
     output_dir.mkdir(parents=True, exist_ok=True)
-    data_path = output_dir / f"memory_{label}.bin"
-    report_path = output_dir / f"memory_{label}.html"
+    data_path = output_dir / "ram.bin"
+    report_path = output_dir / "ram.html"
     analysis = runpy.run_path(str(script_path))
-    print(f"\nProfiling memory: {label}\n", flush=True)
+    print("\nProfiling memory\n", flush=True)
     destination = memray.FileDestination(data_path, overwrite=True)
-    with memray.Tracker(destination=destination, native_traces=True):
+    with memray.Tracker(destination=destination):
         analysis["main"]()
     subprocess.run([sys.executable, "-m", "memray", "flamegraph", "--force", "-o", str(report_path), str(data_path)], check=True)
     print(f"\nMemory report saved under '{report_path}'.\n")

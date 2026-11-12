@@ -7,11 +7,11 @@ import torch
 from torch import Tensor, einsum
 from torch.linalg import vector_norm
 
+from ._utils.reporting import format_duration, print_progress
 from .objects import BondWeights, SiteWeights
 from .observables import expectation_from_rdm
 from .peps import TensorSites, get_site_weights, rotate_site_weights
 from .rdms import simple_update_rdms
-from .reporting import format_duration, print_progress
 from .tilings import UnitCellCoord
 
 
@@ -78,7 +78,7 @@ def simple_update_sweep(a_sites: TensorSites, bond_weights: BondWeights, unitcel
         bond_weights[(site, direction)] = lambda_new
 
 
-def simple_update(a_sites: TensorSites, bond_weights: BondWeights, unitcell_coord: UnitCellCoord, H: Tensor, *, schedule: tuple[tuple[float, float], ...] = ((.1, 1e-4), (.01, 1e-6), (.001, 1e-8)), max_sweeps: int = 10000, required_stable_sweeps: int = 100, verbosity: int = 1) -> tuple[TensorSites, BondWeights, dict]:
+def simple_update(a_sites: TensorSites, bond_weights: BondWeights, unitcell_coord: UnitCellCoord, H: Tensor, *, schedule: tuple[tuple[float, float], ...] = ((.05, 1e-4), (.01, 1e-6), (.005, 1e-8)), max_sweeps: int = 10000, required_stable_sweeps: int = 100, verbosity: int = 1) -> tuple[TensorSites, BondWeights, dict]:
     """Optimize a PEPS without modifying the input dictionaries or their tensors."""
     if max_sweeps < 1:
         raise ValueError("max_sweeps must be at least 1.")

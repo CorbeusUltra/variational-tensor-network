@@ -7,27 +7,28 @@ def main() -> None:
     model_name = "ffb"  # "heisenberg", "shastry_sutherland", "ffb"
     JD = 1.0
     J = JD/4
+    h = .9
     parameters_by_model = {
-        "heisenberg":                   {"J": J, "h": 0.0},  # Expected energy per spin : −0.669441857(7) * J
-        "shastry_sutherland": {"JD": JD, "J": J, "h": 1.6},  # Expected energy per spin : -3/8 * JD  valid for J/JD <≈ 0.429(6)
-        "ffb":                {"JD": JD, "J": J, "h": 2.5},  # Expected energy per spin : -3/8 * JD  valid for J/JD <≈ 0,675(2)
+        "heisenberg":                   {"J": J, "h": h},  # Expected energy per spin : −0.669441857(7) * J
+        "shastry_sutherland": {"JD": JD, "J": J, "h": h},  # Expected energy per spin : -3/8 * JD  valid for J/JD <≈ 0.429(6)
+        "ffb":                {"JD": JD, "J": J, "h": h},  # Expected energy per spin : -3/8 * JD  valid for J/JD <≈ 0,675(2)
     }
     tiling_name = "abcd"  # "checkerboard", "abcd", "rectangle_2x3"
     D = 2
     seed = 0
 
-    n_chi = 10
-    chi_values = [16 + D * i for i in range(n_chi)] # chi_values_by_D = {D: [D**2 + i for i in range(n_chi)] for D in D_values} ; chi_values_by_D = {D: [D**2 + D * i for i in range(n_chi)] for D in D_values} ; chi_values_by_D = {D: [16 + 2 * D**2 * i for i in range(n_chi)] for D in D_values} ; chi_values_by_D = {D: [16 + D * i for i in range(n_chi)] for D in D_values}
-    # chi_values = [chi_values[-1]]
-    convergence_chi = chi_values[-1]  # chi_values[-1] | None
-    conv_tol = 1e-8
-    max_cycles = 2000
+    conv_tol_chi = 1e-6
+    max_chi_iterations = 10
+    conv_tol_ctmrg = 1e-7
+    max_ctmrg_cycles = 2000
 
     verbosity = 2
     show_fig = False
     save_fig = False
+    convergence_last_chi = False
 
-    run_ctmrg(model_name, parameters_by_model, tiling_name, D, seed, chi_values, max_cycles=max_cycles, conv_tol=conv_tol, verbosity=verbosity, convergence_chi=convergence_chi, show_fig=show_fig, save_fig=save_fig)
+    run_ctmrg(model_name, parameters_by_model, tiling_name, D, seed, max_chi_iterations=max_chi_iterations , conv_tol_chi=conv_tol_chi, max_ctmrg_cycles=max_ctmrg_cycles, conv_tol_ctmrg=conv_tol_ctmrg, verbosity=verbosity, show_fig=show_fig, save_fig=save_fig, convergence_last_chi=convergence_last_chi)
+
 
 
 if __name__ == "__main__":

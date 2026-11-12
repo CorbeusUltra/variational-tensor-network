@@ -157,6 +157,12 @@ MODELS = {
         "spins_per_peps_site": 2,
         "label": "Shastry-Sutherland",
     },
+    "x_shastry_sutherland": {
+        "bond": x_shastry_sutherland,
+        "d": 4,
+        "spins_per_peps_site": 2,
+        "label": "Extended Shastry-Sutherland",
+    }
 }
 
 
