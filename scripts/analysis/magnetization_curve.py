@@ -37,12 +37,17 @@ def main() -> None:
     n = 11
     magnetic_fields = torch.linspace(1,3,n)
     magnetizations = []
+    magnetic_fields_converged = []
     for h in magnetic_fields.tolist():
         info = run(h)
+        if info["status"] != "converged":
+            print(f"h={h:g}: calcul non convergé ({info['status']})")
+            continue
+        magnetic_fields_converged.append(h)
         magnetizations.append(info["m_z_over_m_sat"])
     root = find_project_root(__file__)
     output_path =  root / "outputs" / "figures" / "analysis" / "magnetization"
-    plot_magnetization(magnetic_fields, magnetizations, show=True, output_path=output_path)
+    plot_magnetization(magnetic_fields_converged, magnetizations, show=True, output_path=output_path)
 
 
 

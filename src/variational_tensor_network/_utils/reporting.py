@@ -67,7 +67,6 @@ def print_boxed(message: str = ""):
     print()
 
 
-
 # Legacy code
 
 # def compare_tilings(tiling_names: list[str], config: Config, chi_values: list[int], schedule: tuple[tuple[float, float], ...]) -> dict[str, dict]:

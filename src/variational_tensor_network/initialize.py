@@ -48,7 +48,9 @@ def initial_bond_weights(a_sites: TensorSites, method: InitMethod = "random") ->
 
 def initial_a_sites_from_lower_D(a_sites, D) -> TensorSites:
     D_new = D
-    D_old = next(iter(a_sites)).shape[0]
+    D_old = next(iter(a_sites.values())).shape[0]
+    if D_new < D_old:
+        raise ValueError(f"D_new={D_new} must be >= D_old={D_old}.")
     a_sites_new = {}
     for site, a in a_sites.items():
         a_new = a.new_zeros((D_new, D_new, D_new, D_new, a.shape[-1]))
@@ -59,16 +61,15 @@ def initial_a_sites_from_lower_D(a_sites, D) -> TensorSites:
 
 def initial_bond_weights_from_lower_D(a_sites: TensorSites, bond_weights: BondWeights, D) -> BondWeights:
     D_new = D
-    D_old = next(iter(a_sites)).shape[0]
-    bond_weights = {}
-    for site, a in a_sites.items():
-        for direction, axis in (("r", 0), ("d", 3)):
-            weight = bond_weights[(site, direction)]
-            D = a.shape[axis]
-            weight_new = weight.new_zeros(D_new)
-            weight_new[:D_old] = weight
-            bond_weights[(site, direction)] = weight / vector_norm(weight)
-    return bond_weights
+    D_old = next(iter(a_sites.values())).shape[0]
+    if D_new < D_old:
+        raise ValueError(f"D_new={D_new} must be >= D_old={D_old}.")
+    bond_weights_new: BondWeights = {}
+    for bond, weight in bond_weights.items():
+        weight_new = weight.new_zeros(D_new)
+        weight_new[:D_old] = weight
+        bond_weights_new[bond] = weight_new
+    return bond_weights_new
 
 
 def initial_single_and_double_layer_sites(config: Config, sites_coords: tuple[Site, ...],  method: InitMethod = "random") -> tuple[TensorSites, TensorSites]:

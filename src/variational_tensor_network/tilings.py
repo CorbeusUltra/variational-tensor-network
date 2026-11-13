@@ -1,6 +1,6 @@
 """Define the sites in the unit cell. Coordinates: x increases to the right; y increases downward."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 
 type Site = tuple[int, int]
 type UnitCellCoord = Callable[[int, int], Site]
@@ -37,6 +37,13 @@ def rectangle_2x3(x: int, y: int) -> Site:
 
 def diagonal_3(x: int, y: int) -> Site:
     return ((x + y) % 3, 0)
+
+
+def make_accessor[Object](objects_sites: Mapping[Site, Object], site: Site, unitcell_coord: UnitCellCoord) -> Callable[[int, int], Object]:
+    x, y = site
+    def at(dx: int, dy: int) -> Object:
+        return objects_sites[unitcell_coord(x + dx, y + dy)]
+    return at
 
 
 TILINGS = {

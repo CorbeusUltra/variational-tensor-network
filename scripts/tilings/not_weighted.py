@@ -3,9 +3,8 @@
 from time import perf_counter
 
 from variational_tensor_network._utils.path import find_project_root
-from variational_tensor_network.ctmrg_moves import UnitCellCoord
 from variational_tensor_network.plots.tilings import plot_tiling
-from variational_tensor_network.tilings import TILINGS, Site
+from variational_tensor_network.tilings import TILINGS, Site, UnitCellCoord
 
 
 def print_tiling(sites_coord: tuple[Site, ...], unitcell_coord: UnitCellCoord, width: int = 5, height: int = 5) -> None:

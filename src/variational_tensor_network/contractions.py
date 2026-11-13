@@ -50,7 +50,7 @@ def _get_expression(equation: str, shapes: Shapes, strategy: str, memory_limit: 
     return expression
 
 
-def cached_einsum(equation: str, *operands: Tensor, strategy: str = "auto-hq", memory_limit: int = 2**22) -> Tensor:
+def cached_einsum(equation: str, *operands: Tensor, strategy: str = "auto-hq", memory_limit: int = 2**24) -> Tensor:
     """Contract current tensors with an expression cached by operand shapes."""
     shapes = tuple(tuple(tensor.shape) for tensor in operands)
     expression = _get_expression(equation, shapes, strategy, memory_limit)

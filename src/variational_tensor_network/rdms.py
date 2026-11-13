@@ -1,17 +1,14 @@
 """Build bond reduced density matrices using CTMRG or Simple Update environments."""
 
-from typing import Literal
 
 import torch
 from torch import Tensor, einsum
 
 from .contractions import cached_einsum
-from .ctmrg_moves import make_accessor
-from .objects import BondWeights, EnvSites, SiteWeights
+from .objects import BondWeights, Direction, EnvSites, SiteWeights
 from .peps import TensorSites, get_site_weights, open_double_layer, rotate_site_weights
-from .tilings import Site, UnitCellCoord
+from .tilings import Site, UnitCellCoord, make_accessor
 
-type Direction = Literal["r", "d"]
 type BondRDMs = dict[tuple[Site, Direction], Tensor]
 
 

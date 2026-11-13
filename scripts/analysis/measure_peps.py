@@ -7,7 +7,7 @@ def main() -> None:
     model_name = "ffb"  # "heisenberg", "shastry_sutherland", "ffb"
     JD = 1.0
     J = JD/4
-    h = .9
+    h = 2.1
     parameters_by_model = {
         "heisenberg":                   {"J": J, "h": h},  # Expected energy per spin : −0.669441857(7) * J
         "shastry_sutherland": {"JD": JD, "J": J, "h": h},  # Expected energy per spin : -3/8 * JD  valid for J/JD <≈ 0.429(6)

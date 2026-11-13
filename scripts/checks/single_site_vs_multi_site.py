@@ -4,10 +4,10 @@ import torch # noqa: I001
 from time import perf_counter
 
 from variational_tensor_network import initialize
-from variational_tensor_network.ctmrg_moves import UnitCellCoord, all_moves, all_moves_sites
+from variational_tensor_network.ctmrg import all_moves, all_moves_sites
 from variational_tensor_network.objects import Config
 from variational_tensor_network.peps import double_layer
-from variational_tensor_network.tilings import TILINGS, Site
+from variational_tensor_network.tilings import TILINGS, Site, UnitCellCoord
 
 
 def check_tilings(sites_coords: tuple[Site, ...], unitcell_coord: UnitCellCoord, config: Config, steps: int = 5) -> None:
