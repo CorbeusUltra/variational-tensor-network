@@ -6,8 +6,8 @@ from time import perf_counter
 from warnings import warn
 
 # import torch
-from torch import Tensor, einsum, finfo, full_like, stack
-from torch.linalg import norm, svd
+from torch import Tensor, einsum, finfo, stack
+from torch.linalg import LinAlgError, norm, svd
 
 from ._utils.reporting import format_duration, print_progress
 from .contractions import cached_einsum
@@ -44,8 +44,13 @@ def get_projectors(R: Tensor, Rbar: Tensor, config: Config) -> tuple[Tensor, Ten
     scale = M.abs().max()
     if scale.item() == 0:
         raise ValueError("The projector matrix is identically zero.")
-    U, S, Vh = svd(M / scale, full_matrices=False)
-    S = S * scale
+    M_scaled = M / scale
+    try:
+        U, S, Vh = svd(M_scaled, full_matrices=False)
+    except LinAlgError:
+        U_t, S, Vh_t = svd(M_scaled.mT.contiguous(), full_matrices=False)
+        U, Vh = Vh_t.mT, U_t.mT
+    S *= scale
     V = Vh.mT
     rtol = max(M.shape) * finfo(S.dtype).eps
     rank = (S > rtol * S[0]).sum().item()
@@ -148,12 +153,10 @@ def ctmrg(env_sites: EnvSites, a_tilde_sites: TensorSites, unitcell_coord: UnitC
         "stop_on_convergence": stop_on_convergence,
         "required_stable_cycles": required_stable_cycles,
         "error_history": [],
-        "threshold_history": [],
         "energy_history": [energies.sum().item() / len(a_tilde_sites)],
         "stable_cycles_history": [0],
     }
     errors = info["error_history"]
-    thresholds = info["threshold_history"]
     for cycle in range(2, max_cycles + 1):
         old_energies = energies
         env_sites = all_moves_sites(A_sites, env_sites, unitcell_coord, config)
@@ -162,10 +165,8 @@ def ctmrg(env_sites: EnvSites, a_tilde_sites: TensorSites, unitcell_coord: UnitC
         energy_per_peps_site = energies.sum().item() / len(a_tilde_sites)
         info["energy_history"].append(energy_per_peps_site)
         error = (energies - old_energies).abs().amax(dim=1)
-        threshold = full_like(error, conv_tol)
         errors.append(error.clone())
-        thresholds.append(threshold.clone())
-        converged = (error <= threshold).all()
+        converged = (error <= conv_tol).all()
         stable_cycles = stable_cycles + 1 if converged else 0
         info["stable_cycles_history"].append(stable_cycles)
         maximum_error = error.max().item()
@@ -179,15 +180,12 @@ def ctmrg(env_sites: EnvSites, a_tilde_sites: TensorSites, unitcell_coord: UnitC
     print_progress(progress, verbosity, final=True)
     if stop_on_convergence and stable_cycles < required_stable_cycles:
         recent_errors = "\n".join(f"{error.max().item():.3e}" for error in errors[-10:])
-        unconverged_sites = (~(errors[-1] <= thresholds[-1])).sum().item()
-        threshold_min = thresholds[-1].min().item()
-        threshold_max = thresholds[-1].max().item()
+        unconverged_sites = (~(errors[-1] <= conv_tol)).sum().item()
         warn(f"CTMRG did not converge after {max_cycles} cycles "
              f"(D={config.D}, chi={config.chi}).\n"
              f"Unconverged sites: {unconverged_sites}/{len(env_sites)}.\n"
              f"Consecutive cycles below tolerance: {stable_cycles}/{required_stable_cycles}.\n"
              f"Last errors, oldest to newest: \n{recent_errors}\n"
-             f"Final per-site thresholds: {threshold_min:.2e} to {threshold_max:.2e}.\n"
              "Returning the last environments without convergence.\n",
              RuntimeWarning)
     if not stop_on_convergence:
@@ -203,10 +201,11 @@ def ctmrg(env_sites: EnvSites, a_tilde_sites: TensorSites, unitcell_coord: UnitC
         "final_error": maximum_error,
         "stable_cycles": stable_cycles,
         "energy_per_peps_site": energy_per_peps_site,
-        "bond_energies": dict(zip(rdms, energies.detach().cpu().reshape(-1).tolist())),
+        "bond_energies": dict(zip(rdms, energies.reshape(-1).tolist())),
         "bond_rdms": {bond: rho for bond, rho in rdms.items()},
     })
     return env_sites, info
+
 
 
 # "Legacy" code from the single site CTMRG, mono-site version

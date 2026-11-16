@@ -4,13 +4,13 @@ import torch
 
 from variational_tensor_network._utils.path import find_project_root
 from variational_tensor_network.plots.magnetization import plot_magnetization
-from variational_tensor_network.simulation import run_ctmrg
+from variational_tensor_network.simulation.chi_scan import run_chi_scan
 
 
 def run(h: float) -> dict:
     model_name = "ffb"  # "heisenberg", "shastry_sutherland", "ffb"
     JD = 1.0
-    J = JD/4
+    J = JD *.3
     parameters_by_model = {
         "heisenberg":                   {"J": J, "h": h},  # Expected energy per spin : −0.669441857(7) * J
         "shastry_sutherland": {"JD": JD, "J": J, "h": h},  # Expected energy per spin : -3/8 * JD  valid for J/JD <≈ 0.429(6)
@@ -28,14 +28,13 @@ def run(h: float) -> dict:
     verbosity = 2
     show_fig = False
     save_fig = False
-    convergence_last_chi = False
 
-    return run_ctmrg(model_name, parameters_by_model, tiling_name, D, seed, max_chi_iterations=max_chi_iterations , conv_tol_chi=conv_tol_chi, max_ctmrg_cycles=max_ctmrg_cycles, conv_tol_ctmrg=conv_tol_ctmrg, verbosity=verbosity, show_fig=show_fig, save_fig=save_fig, convergence_last_chi=convergence_last_chi)
+    return run_chi_scan(model_name, parameters_by_model, tiling_name, D, seed, max_chi_iterations=max_chi_iterations , conv_tol_chi=conv_tol_chi, max_ctmrg_cycles=max_ctmrg_cycles, conv_tol_ctmrg=conv_tol_ctmrg, verbosity=verbosity, show_fig=show_fig, save_fig=save_fig)
 
 
 def main() -> None:
     n = 11
-    magnetic_fields = torch.linspace(1,3,n)
+    magnetic_fields = torch.linspace(1.95, 2.05,n)
     magnetizations = []
     magnetic_fields_converged = []
     for h in magnetic_fields.tolist():

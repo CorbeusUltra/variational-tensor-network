@@ -1,4 +1,6 @@
+from math import isfinite
 from pathlib import Path
+from typing import Any
 
 import matplotlib.pyplot as plt
 import torch
@@ -9,26 +11,23 @@ from ..tilings import Site, UnitCellCoord
 from ._utils import finish_plot
 
 
-def plot_ctmrg_convergence(errors: list[float], thresholds: list[float] | None = None, title: str = "", show: bool = False, output_path: Path | None = None) -> None:
+def plot_ctmrg_convergence(errors: list[float], title: str = "", show: bool = False, output_path: Path | None = None) -> None:
     cycles = range(2, len(errors) + 2)
     fig, ax = plt.subplots()
-    ax.semilogy(cycles, errors, "x-", color="blue", label=r"$|\text{energy}_\mathrm{new} - \text{energy}_\mathrm{old}|$")
-    if thresholds is not None:
-        ax.semilogy(cycles, thresholds, "--", color="red", label="threshold")
+    ax.semilogy(cycles, errors, "-", color="blue", label=r"$|\text{energy}_\mathrm{new} - \text{energy}_\mathrm{old}|$")
     ax.set(xlabel="number of cycle", ylabel=r"change in energy")
     ax.legend()
     ax.grid()
     finish_plot(fig, title=title, show=show, output_path=output_path)
 
 
-def plot_ctmrg_convergence_by_site(errors: list[Tensor], thresholds: list[Tensor], sites_coords: tuple[Site, ...], unitcell_coord: UnitCellCoord, title: str = "", show: bool = False, output_path: Path | None = None) -> None:
+def plot_ctmrg_convergence_by_site(errors: list[Tensor], tolerance: float, sites_coords: tuple[Site, ...], unitcell_coord: UnitCellCoord, title: str = "", show: bool = False, output_path: Path | None = None) -> None:
     errors_array = torch.stack(errors).numpy()
-    thresholds_array = torch.stack(thresholds).numpy()
     cycles = range(2, len(errors) + 2)
     fig, ax = plt.subplots()
     for i, site in enumerate(sites_coords):
         ax.semilogy(cycles, errors_array[:, i], color=f"C{i}")
-    ax.semilogy(cycles, thresholds_array[:, 0], "--", color="black", label="Threshold")
+    ax.axhline(tolerance, linestyle="--", color="black", label="Tolerance")
     ax.set(xlabel="number of cycle", ylabel=r"change in energy")
     ax.legend(loc="upper center")
     ax.grid()
@@ -61,6 +60,18 @@ def plot_energy_vs_chi(chi_values: list[int], energies: list[float], D: int, tit
     ax.grid(alpha=0.3)
     finish_plot(fig, title=title, show=show, output_path=output_path)
 
+
+def plot_ctmrg_diagnostics(history_ctmrg: dict[int, dict[str, Any]], metadata: dict[str, Any], spins_per_peps_site: int, *, show: bool = False, output_dir: Path | None = None) -> None:
+    if not history_ctmrg or (not show and output_dir is None):
+        return
+    parameters_tag = "_".join(f"{key}={value}" for key, value in metadata["parameters"].items())
+    D = metadata["D"]
+    plot_tag = (f"{metadata['model']}_{metadata['tiling']}_D={D}_" f"{parameters_tag}_seed={metadata['seed']}")
+    converged_chi = sorted(chi for chi, result in history_ctmrg.items() if result["status"] == "converged" and isfinite(result["energy_per_peps_site"]))
+    if len(converged_chi) >= 4:
+        energies = [history_ctmrg[chi]["energy_per_peps_site"] / spins_per_peps_site for chi in converged_chi]
+        name = f"ctmrg_energy_vs_chi_{plot_tag}"
+        plot_energy_vs_chi(converged_chi, energies, D, show=show, output_path=output_dir / name if output_dir is not None else None)
 
 
 # Legacy code

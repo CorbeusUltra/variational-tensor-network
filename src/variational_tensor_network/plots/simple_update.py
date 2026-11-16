@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any
 
 import matplotlib.pyplot as plt
 from matplotlib.ticker import ScalarFormatter
@@ -51,3 +52,14 @@ def plot_simple_update_by_stage(info: dict, title: str = "", show: bool = False,
         ax.legend()
         start = stop
     finish_plot(fig, title=title, show=show, output_path=output_path)
+
+
+def plot_simple_update_diagnostics(info_su: dict[str, Any], metadata: dict[str, Any], *, show: bool = False, output_dir: Path | None = None) -> None:
+    if not show and output_dir is None:
+        return
+    parameters_tag = "_".join(f"{key}={value}" for key, value in metadata["parameters"].items())
+    plot_tag = (f"{metadata['model']}_{metadata['tiling']}_D={metadata['D']}_" f"{parameters_tag}_seed={metadata['seed']}")
+    for prefix, plot in (("su", plot_simple_update), ("su_by_stage", plot_simple_update_by_stage)):
+        name = f"{prefix}_{plot_tag}"
+        output_path = output_dir / name if output_dir is not None else None
+        plot(info_su, show=show, output_path=output_path)
