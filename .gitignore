@@ -17,7 +17,8 @@ wheels/
 
 # Personnal
 /memo_jed.md
-run.sh
+/run.sh
+/pull_jed_scans.sh
 
 # Data
 /data/

@@ -11,11 +11,13 @@ from ..tilings import Site, UnitCellCoord
 from ._utils import finish_plot
 
 
-def plot_ctmrg_convergence(errors: list[float], title: str = "", show: bool = False, output_path: Path | None = None) -> None:
+def plot_ctmrg_convergence(errors: list[float], title: str = "", show: bool = False, output_path: Path | None = None, *, tolerance: float | None = None) -> None:
     cycles = range(2, len(errors) + 2)
     fig, ax = plt.subplots()
-    ax.semilogy(cycles, errors, "-", color="blue", label=r"$|\text{energy}_\mathrm{new} - \text{energy}_\mathrm{old}|$")
-    ax.set(xlabel="number of cycle", ylabel=r"change in energy")
+    ax.semilogy(cycles, errors, "-", color="blue")
+    if tolerance is not None:
+        ax.axhline(tolerance, linestyle="--", color="black", label="Tolerance")
+    ax.set(xlabel="CTMRG cycle", ylabel="Maximum bond-energy change")
     ax.legend()
     ax.grid()
     finish_plot(fig, title=title, show=show, output_path=output_path)

@@ -1,6 +1,7 @@
 import json
 from collections.abc import Iterator
 from hashlib import sha256
+from math import isfinite
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Any
@@ -93,8 +94,25 @@ def run_simple_update(model_name: str, parameters_by_model: dict[str, dict[str, 
     state_path = save_simple_update_state(state, root / "data" / "simple_update")
     if verbosity >= 1:
         print(f"\nSimple update saved under '{state_path}'.\n", flush=True)
+        # print(f"Hash : {state_path.name}", flush=True)
     if show_fig or save_fig:
         info_su = state["info_su"]
         metadata = state["metadata"]
-        plot_simple_update_diagnostics(info_su, metadata, show=show_fig, output_dir=root / "outputs" / "figures" / "analysis" if save_fig else None)
+        plot_simple_update_diagnostics(info_su, metadata, show=show_fig, output_dir = root / "outputs" / "figures" / "analysis" if save_fig else None)
     return state_path, state
+
+
+def select_or_run_su(model_name: str, parameters_by_model: dict[str, dict[str, float]], tiling_name: str, D: int, seed: int, *, verbosity: int = 1) -> tuple[Path, dict[str, Any]]:
+    parameters = parameters_by_model[model_name]
+    query = {"model": model_name, "parameters": parameters, "tiling": tiling_name, "D": D}
+    candidates = ((path, state) for path, state in matching_states(root / "data" / "simple_update", query) if state["info_su"]["status"] == "converged" and isfinite(state["info_su"]["energy_per_peps_site"]))
+    selected = min(candidates, key=lambda item: item[1]["info_su"]["energy_per_peps_site"], default=None)
+    if selected is None:
+        if verbosity >= 1:
+            print("\nNo converged saved state found. Running Simple Update.", flush=True)
+        return run_simple_update(model_name, parameters_by_model, tiling_name, D, seed, verbosity=verbosity, show_fig=False, save_fig=False)
+    if verbosity >= 1:
+        model = MODELS[model_name]
+        parameters_text = ", ".join(f"{name}={value:g}" for name, value in parameters.items())
+        print_boxed(f"{model['label']} ({parameters_text}) | {tiling_name} | (D={D}, d={model['d']})")
+    return selected

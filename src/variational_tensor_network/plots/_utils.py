@@ -14,7 +14,7 @@ def finish_plot(fig: Figure, title: str = "", show: bool = False, output_path: P
     if output_path is not None:
         fig.canvas.manager.set_window_title(output_path.name)
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        pkl_dir = output_path.parent / ".pkl"
+        pkl_dir = output_path.parent / "pkl"
         pkl_dir.mkdir(parents=True, exist_ok=True)
         with (pkl_dir / f"{output_path.name}.pkl").open("wb") as f:
             pickle.dump(fig, f)

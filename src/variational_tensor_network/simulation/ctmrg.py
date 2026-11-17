@@ -57,21 +57,35 @@ def compute_ctmrg_environment(prepared: PreparedCTMRG, chi: int, *, max_cycles: 
     environment_method = "from_bulk"
     boundary = initial_boundary(config, method=boundary_method)
     initial_env = initial_env_sites(prepared.A_sites, boundary, config, method=environment_method)
-    env_sites, info_ctmrg = ctmrg( initial_env, prepared.a_tilde_sites, prepared.unitcell_coord, config, prepared.H, max_cycles=max_cycles, conv_tol=conv_tol, verbosity=verbosity, label=label, )
+    env_sites, info_ctmrg = ctmrg(initial_env, prepared.a_tilde_sites, prepared.unitcell_coord, config, prepared.H, max_cycles=max_cycles, conv_tol=conv_tol, verbosity=verbosity, label=label)
     info_ctmrg["boundary_initialization"] = boundary_method
     info_ctmrg["environment_initialization"] = environment_method
     return env_sites, info_ctmrg
 
 
-def save_ctmrg_result(result: dict[str, Any]) -> Path:
-    metadata = result["metadata"]
-    chi = metadata["chi"]
+def ctmrg_scan_dir(metadata: dict[str, Any]) -> Path:
     scan_identity = {key: value for key, value in metadata.items() if key not in {"su_metadata", "chi", "tolerance", "max_cycles"}}
     key = json.dumps(scan_identity, sort_keys=True, allow_nan=False).encode("utf-8")
     tag = sha256(key).hexdigest()
-    output_path = root / "data" / "ctmrg" / tag / f"chi={chi}.pt"
+    return root / "data" / "ctmrg" / tag
+
+
+def save_ctmrg_result(result: dict[str, Any]) -> Path:
+    metadata = result["metadata"]
+    chi = metadata["chi"]
+    output_path = ctmrg_scan_dir(metadata) / f"chi={chi}.pt"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with NamedTemporaryFile("wb", dir=output_path.parent, delete=False) as stream:
         torch.save(result, stream)
+    Path(stream.name).replace(output_path)
+    return output_path
+
+
+def save_scan_summary(scan_dir: Path, summary: dict[str, Any]) -> Path:
+    scan_dir.mkdir(parents=True, exist_ok=True)
+    output_path = scan_dir / "scan.json"
+    with NamedTemporaryFile("w", dir=scan_dir, suffix=".tmp", encoding="utf-8", delete=False) as stream:
+        json.dump(summary, stream, indent=2, allow_nan=False)
+        stream.write("\n")
     Path(stream.name).replace(output_path)
     return output_path
