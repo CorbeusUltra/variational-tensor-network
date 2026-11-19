@@ -5,13 +5,17 @@ from dataclasses import replace
 from time import perf_counter
 from warnings import warn
 
-# import torch
 from torch import Tensor, einsum, finfo, stack
 from torch.linalg import LinAlgError, norm, svd
 
 from ._utils.reporting import format_duration, print_progress
 from .contractions import cached_einsum
-from .objects import Config, Environment, EnvSites
+from .defaults import (
+    DEFAULT_CTMRG_MAX_STEPS,
+    DEFAULT_CTMRG_STABLE_STEPS,
+    DEFAULT_CTMRG_TOL,
+)
+from .objects import BondOperators, Config, Environment, EnvSites, operator_on_bond
 from .observables import expectation_from_rdm
 from .peps import TensorSites, double_layer
 from .rdms import ctmrg_rdms
@@ -127,7 +131,7 @@ def all_moves_sites(A_sites: TensorSites, env_sites: EnvSites, unitcell_coord: U
 
 
 
-def ctmrg(env_sites: EnvSites, a_tilde_sites: TensorSites, unitcell_coord: UnitCellCoord, config: Config, H: Tensor, *, stop_on_convergence: bool = True, max_cycles: int = 2000, conv_tol: float = 1e-7, required_stable_cycles: int = 10, verbosity: int = 1, label: str = "CTMRG") -> tuple[EnvSites, dict]:
+def ctmrg(env_sites: EnvSites, a_tilde_sites: TensorSites, unitcell_coord: UnitCellCoord, config: Config, H: BondOperators, *, stop_on_convergence: bool = True, max_cycles: int = DEFAULT_CTMRG_MAX_STEPS, conv_tol: float = DEFAULT_CTMRG_TOL, required_stable_cycles: int = DEFAULT_CTMRG_STABLE_STEPS, verbosity: int = 1, label: str = "CTMRG") -> tuple[EnvSites, dict]:
     """Compute final environments without modifying the input environments or bulk tensors."""
     if max_cycles < 2:
         raise ValueError("max_cycles must be at least 2.")
@@ -143,7 +147,7 @@ def ctmrg(env_sites: EnvSites, a_tilde_sites: TensorSites, unitcell_coord: UnitC
     A_sites = {site: double_layer(a_tilde) for site, a_tilde in a_tilde_sites.items()}
     env_sites = all_moves_sites(A_sites, env_sites, unitcell_coord, config)
     rdms = ctmrg_rdms(a_tilde_sites, env_sites, unitcell_coord)
-    energies = stack([expectation_from_rdm(rho, H) for rho in rdms.values()]).reshape(len(a_tilde_sites), 2)
+    energies = stack([expectation_from_rdm(rho, operator_on_bond(H, bond)) for bond, rho in rdms.items()]).reshape(len(a_tilde_sites), 2)
     stable_cycles = 0
     info = {
         "D": config.D,
@@ -161,7 +165,7 @@ def ctmrg(env_sites: EnvSites, a_tilde_sites: TensorSites, unitcell_coord: UnitC
         old_energies = energies
         env_sites = all_moves_sites(A_sites, env_sites, unitcell_coord, config)
         rdms = ctmrg_rdms(a_tilde_sites, env_sites, unitcell_coord)
-        energies = stack([expectation_from_rdm(rho, H) for rho in rdms.values()]).reshape(len(a_tilde_sites), 2)
+        energies = stack([expectation_from_rdm(rho, operator_on_bond(H, bond)) for bond, rho in rdms.items()]).reshape(len(a_tilde_sites), 2)
         energy_per_peps_site = energies.sum().item() / len(a_tilde_sites)
         info["energy_history"].append(energy_per_peps_site)
         error = (energies - old_energies).abs().amax(dim=1)

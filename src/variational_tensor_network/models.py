@@ -4,6 +4,9 @@ from functools import reduce
 
 from torch import Tensor, eye, kron
 
+from .objects import Direction
+from .tilings import Site
+
 
 def interaction_term(S_alpha: Tensor, S_beta: Tensor, i: int, j: int, n: int, *, prefactor: float = 1.0) -> Tensor:
     """Return prefactor * S_alpha(i) * S_beta(j) embedded in n spins, requiring 1 <= i < j <= n."""
@@ -62,7 +65,7 @@ def heisenberg_bond(J: float = 1.0, h: float = 0) -> Tensor:
     return H
 
 
-def ffb_bond(JD: float = 2.0, J: float = 1.0, h: float = 0) -> Tensor:
+def ffb_bond(JD: float, J: float, h: float) -> Tensor:
     """
     Return the FFB bond between dimers (1, 2) and (3, 4),
     coupling all four inter-dimer spin pairs.
@@ -87,7 +90,7 @@ def ffb_bond(JD: float = 2.0, J: float = 1.0, h: float = 0) -> Tensor:
     return H
 
 
-def shastry_sutherland_bond(JD: float = 2.0, J: float = 1.0, h: float = 0) -> Tensor:
+def shastry_sutherland_bond(JD: float, J: float, h: float, *, site=(0, 0), direction="r") -> Tensor:
     """
     Return an oriented dimer-pair term with inter-dimer couplings (2, 3) and (2, 4).
         1
@@ -96,21 +99,14 @@ def shastry_sutherland_bond(JD: float = 2.0, J: float = 1.0, h: float = 0) -> Te
        / \
       3───4
     """
-    # Intra-dimer terms  (Share each dimer's intra-dimer term among its four incident bonds so divide prefactor by 4)
-    H = heisenberg_term(i=1, j=2, n=4, J=JD/4)
-    H += heisenberg_term(i=3, j=4, n=4, J=JD/4)
-    # Inter-dimer terms
-    H += heisenberg_term(i=2, j=3, n=4, J=J)
-    H += heisenberg_term(i=2, j=4, n=4, J=J)
-    # Zeeman terms  (Share each spin's Zeeman term among its dimer's four incident bonds so divide prefactor by 4)
-    for i in (1,2,3,4):
-        H -= h/4 * spin_z(i, n=4)
-    return H
+    return xss_bond(JD=JD, J1=J, J2=0.0, h=h, site=site, direction=direction)
 
 
-def x_shastry_sutherland(JD: float = 2.0, J1: float = 1.0, J2: float = 0.5, h: float = 0):
+def xss_bond(JD: float, J1: float, J2: float, h: float = 0.0, *, site: Site = (0, 0), direction: Direction = "r"):
     """
     Extended Shastry-Sutherland bond between dimers (1, 2) and (3, 4).
+
+    direction = "d" (down)
 
                1
             ⋰ ║ ⋱
@@ -119,21 +115,32 @@ def x_shastry_sutherland(JD: float = 2.0, J1: float = 1.0, J2: float = 0.5, h: f
       ⋰     ╱   ╲     ⋱
     3 ═══════════════════ 4
 
+    direction = "r" (right)
+
+                     4
+                ⋰ ╱  ║
+            ⋰    ╱   ║
+        ⋰       ╱    ║
+    1 ═════════ 2    ║
+        ⋱       ╲    ║
+            ⋱    ╲   ║
+                ⋱ ╲  ║
+                     3
+
     JD: double lines (1, 2), (3, 4)
     J:  solid lines  (2, 3), (2, 4)
     J2: dotted lines (1, 3), (1, 4)
     """
-    # Intra-dimer terms (Share each dimer's intra-dimer term among its four incident bonds so divide prefactor by 4)
-    H  = heisenberg_term(i=1, j=2, n=4, J=JD/4)
-    H += heisenberg_term(i=3, j=4, n=4, J=JD/4)
-    # Inter-dimer terms
-    H += heisenberg_term(i=2, j=3, n=4, J=J1)
-    H += heisenberg_term(i=2, j=4, n=4, J=J1)
-    H += heisenberg_term(i=1, j=3, n=4, J=J2)
-    H += heisenberg_term(i=1, j=4, n=4, J=J2)
-    # Zeeman terms (Share each spin's Zeeman term among its dimer's four incident bonds so divide prefactor by 4)
-    for i in (1,2,3,4):
-        H -= h/4 * spin_z(i, n=4)
+    axis_parity = {"r": 0, "d": 1}[direction]
+    source_aligned = (sum(site) % 2 == axis_parity)
+    H  = heisenberg_term(1, 2, n=4, J=JD/4)
+    H += heisenberg_term(3, 4, n=4, J=JD/4)
+    for i in (1, 2):
+        for j in (3, 4):
+            facing = (i == 2) if source_aligned else (j == 3)
+            H += heisenberg_term(i, j, n=4, J=J1 if facing else J2)
+    for i in range(1, 5):
+        H -= (h / 4) * spin_z(i, n=4)
     return H
 
 
@@ -157,13 +164,21 @@ MODELS = {
         "spins_per_peps_site": 2,
         "label": "Shastry-Sutherland",
     },
-    "x_shastry_sutherland": {
-        "bond": x_shastry_sutherland,
+    "xss": {
+        "bond": xss_bond,
         "d": 4,
         "spins_per_peps_site": 2,
         "label": "Extended Shastry-Sutherland",
     }
 }
+
+
+def model_bond_hamiltonians(model_name: str, parameters: dict[str, float], sites_coords: tuple[Site, ...]):
+    model_bond = MODELS[model_name]["bond"]
+    if model_name not in ("shastry_sutherland", "xss"):
+        return model_bond(**parameters)
+    return {(site, direction): model_bond(**parameters, site=site, direction=direction) for site in sites_coords for direction in ("r", "d")}
+
 
 
 

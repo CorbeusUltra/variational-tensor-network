@@ -46,30 +46,49 @@ def initial_bond_weights(a_sites: TensorSites, method: InitMethod = "random") ->
     return bond_weights
 
 
-def initial_a_sites_from_lower_D(a_sites, D) -> TensorSites:
-    D_new = D
+def initial_a_sites_from_lower_D(a_sites: TensorSites, D: int, epsilon: float = 1e-3) -> TensorSites:
+    """Expand site tensors from lower D, adding noise in new components."""
     D_old = next(iter(a_sites.values())).shape[0]
-    if D_new < D_old:
-        raise ValueError(f"D_new={D_new} must be >= D_old={D_old}.")
+    if D <= D_old:
+        raise ValueError(f"D={D} must be > D_old={D_old}.")
+    if epsilon < 0:
+        raise ValueError("epsilon must be non-negative.")
     a_sites_new = {}
     for site, a in a_sites.items():
-        a_new = a.new_zeros((D_new, D_new, D_new, D_new, a.shape[-1]))
+        a_new = a.new_zeros((D, D, D, D, a.shape[-1]))
         a_new[:D_old, :D_old, :D_old, :D_old, :] = a
+        noise = torch.randn_like(a_new)
+        noise[:D_old, :D_old, :D_old, :D_old, :] = 0
+        noise /= vector_norm(noise)
+        a_new += epsilon * noise
+        a_new /= vector_norm(a_new)
         a_sites_new[site] = a_new
     return a_sites_new
 
 
-def initial_bond_weights_from_lower_D(a_sites: TensorSites, bond_weights: BondWeights, D) -> BondWeights:
-    D_new = D
+
+
+def initial_bond_weights_from_lower_D(a_sites: TensorSites, bond_weights: BondWeights, D: int, epsilon: float = 1e-3) -> BondWeights:
+    """Expand bond weights, initializing new entries to small positive values."""
     D_old = next(iter(a_sites.values())).shape[0]
-    if D_new < D_old:
-        raise ValueError(f"D_new={D_new} must be >= D_old={D_old}.")
+    if D <= D_old:
+        raise ValueError(f"D={D} must be > D_old={D_old}.")
+    if epsilon < 0:
+        raise ValueError("epsilon must be non-negative.")
     bond_weights_new: BondWeights = {}
-    for bond, weight in bond_weights.items():
-        weight_new = weight.new_zeros(D_new)
-        weight_new[:D_old] = weight
-        bond_weights_new[bond] = weight_new
+    for bond, weights in bond_weights.items():
+        weights_new = weights.new_zeros(D)
+        weights_new[:D_old] = weights
+        weights_new[D_old:] = epsilon * weights.max() * (0.5 + torch.rand_like(weights_new[D_old:]))
+        weights_new /= vector_norm(weights_new)
+        bond_weights_new[bond] = weights_new
     return bond_weights_new
+
+
+
+
+
+
 
 
 def initial_single_and_double_layer_sites(config: Config, sites_coords: tuple[Site, ...],  method: InitMethod = "random") -> tuple[TensorSites, TensorSites]:

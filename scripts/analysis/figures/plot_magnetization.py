@@ -4,16 +4,25 @@ import json
 from math import isfinite, nan
 
 from variational_tensor_network._utils.path import find_project_root
-from variational_tensor_network.plots.magnetization import plot_magnetization
+from variational_tensor_network.plots.observables import plot_magnetization
 
 
 def main() -> None:
-    model_name = "ffb"
+    model_name = "xss"  # "heisenberg", "shastry_sutherland", "ffb", "xss"
     tiling_name = "abcd"
     JD = 1.0
-    J = 0.3 * JD
-    D_values = (2,3)  # Use (2, 3, 4) when those scans are available.
-    h_min, h_max = 0, 3
+    J = JD *.3
+    J1 = JD * .35
+    J2 = JD * .25
+    parameters_by_model = {
+        "heisenberg":           {"J": J},  # Expected energy per spin : −0.669441857(7) * J
+        "shastry_sutherland":   {"JD": JD, "J": J},  # Expected energy per spin : -3/8 * JD  valid for J/JD <≈ 0.429(6)
+        "ffb":                  {"JD": JD, "J": J},  # Expected energy per spin : -3/8 * JD  valid for J/JD <≈ 0,675(2)
+        "xss": {"JD": JD, "J1": J1, "J2": J2}, 
+    }
+    couplings = parameters_by_model[model_name]
+    D_values = (5, 6, 7)  # Use (2, 3, 4) when those scans are available.
+    h_min, h_max = 1.9, 2.7
     show_fig = True
     save_fig = True
 
@@ -28,14 +37,26 @@ def main() -> None:
         params = point["parameters"]
         if point["model"] != model_name or point["tiling"] != tiling_name:
             continue
-        if D not in curves or params["JD"] != JD or params["J"] != J:
+        scan_couplings = {key: value for key, value in params.items() if key != "h"}
+        if D not in curves or scan_couplings != couplings:
             continue
+        if couplings is None:
+            couplings = scan_couplings
+        elif couplings != scan_couplings:
+            raise SystemExit(
+                f"Multiple coupling sets for {model_name}: "
+                f"{couplings} and {scan_couplings}."
+            )
         h = params["h"]
         if not(h_min <= h <= h_max):
             continue
         curve = curves[D]
         m = scan["m_z_over_m_sat"]
         if scan["status"] != "converged" or m is None or not isfinite(m):
+            print(f"D={D} | h={h:.10g} | status={scan['status']} | m={m}")
+            for attempt in scan["attempts"]:
+                print(f"  chi={attempt['chi']} | CTMRG={attempt['ctmrg_status']}")
+            print(f"  Summary: {path}")
             curve.setdefault(h, nan)
             continue
         if h in curve and isfinite(curve[h]):
@@ -46,13 +67,17 @@ def main() -> None:
         if not any(isfinite(m) for m in curve.values()):
             print(f"D={D}: no converged scan for these parameters.")
             continue
-        curves_by_D[D] = sorted(curve.items())
+        curves_by_D[D] = sorted((h, m) for h, m in curve.items() if isfinite(m))
     if not curves_by_D:
         raise SystemExit("No magnetization curve to plot. Check the filters and data/ctmrg/.")
+
+    coupling_labels = [f"{key}={value}" for key, value in sorted(couplings.items())]
+    coupling_tag = "_".join(coupling_labels)
     D_tag = "-".join(str(D) for D in D_values)
-    name = f"magnetization_{model_name}_{tiling_name}_JD={JD:g}_J={J:g}_D={D_tag}"
-    output_path = root / "outputs" / "figures" / "analysis" / "magnetization" / name if save_fig else None
-    plot_magnetization(curves_by_D, title=f"{model_name} | {tiling_name} | $J/J_D={J / JD:g}$", show=show_fig, output_path=output_path)
+    name = f"magnetization_{model_name}_{tiling_name}_{coupling_tag}_D={D_tag}"
+    title = f"{model_name} | {tiling_name} | {', '.join(coupling_labels)}"
+    output_path = (root / "outputs" / "figures" / "magnetization" / name if save_fig else None)
+    plot_magnetization(curves_by_D, title=title, show=show_fig, output_path=output_path)
 
 
 if __name__ == "__main__":

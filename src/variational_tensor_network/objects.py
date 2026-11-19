@@ -11,6 +11,7 @@ from .tilings import Site
 
 type Direction = Literal["r", "d"]
 type BondWeights = dict[tuple[Site, Direction], Tensor]
+type BondOperators = Tensor | dict[tuple[Site, Direction], Tensor]
 type EnvSites = dict[Site, Environment]
 
 
@@ -76,3 +77,6 @@ class SiteWeights:
             weight = getattr(self, direction)
             if weight.shape[0] != D:
                 raise ValueError(f"{direction} must have shape ({D},), got {tuple(weight.shape)}.")
+
+def operator_on_bond(operators: BondOperators, bond: tuple[Site, Direction]) -> Tensor:
+    return operators if isinstance(operators, Tensor) else operators[bond]

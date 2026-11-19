@@ -6,7 +6,7 @@ from typing import Any
 
 def run_magnetization_point(D: int = 2, h: float = 3) -> dict[str, Any]:
     from variational_tensor_network.simulation.chi_scan import run_chi_scan
-    model_name = "x_shastry_sutherland"  # "heisenberg", "shastry_sutherland", "ffb"
+    model_name = "xss"  # "heisenberg", "shastry_sutherland", "ffb", "xss"
     JD = 1.0
     J = JD *.3
     J1 = JD * .35
@@ -15,13 +15,13 @@ def run_magnetization_point(D: int = 2, h: float = 3) -> dict[str, Any]:
         "heisenberg":           {"J": J, "h": h},  # Expected energy per spin : −0.669441857(7) * J
         "shastry_sutherland":   {"JD": JD, "J": J, "h": h},  # Expected energy per spin : -3/8 * JD  valid for J/JD <≈ 0.429(6)
         "ffb":                  {"JD": JD, "J": J, "h": h},  # Expected energy per spin : -3/8 * JD  valid for J/JD <≈ 0,675(2)
-        "x_shastry_sutherland": {"JD": JD, "J1": J1, "J2": J2, "h": h}, 
+        "xss": {"JD": JD, "J1": J1, "J2": J2, "h": h}, 
     }
     tiling_name = "abcd"  # "checkerboard", "abcd", "rectangle_2x3"
     seed = 0
 
     conv_tol_chi = 1e-6
-    max_chi_iterations = 50
+    max_chi_iterations = 20
     required_stable_chi_iteration = 3
     conv_tol_ctmrg = 1e-7
     max_ctmrg_cycles = 2000
@@ -41,8 +41,8 @@ def linspace(start: float, stop: float, n: int):
 
 
 def main() -> None:
-    D_VALUES = [2,3]
-    start, stop, n = 0, 4, 5
+    D_VALUES = [4,5,6,7,8]
+    start, stop, n = 1.9, 2.7, 30
     points = [(D, h) for D in D_VALUES for h in linspace(start, stop, n)]
     if not points or len(points) != len(set(points)):
         raise ValueError("The scan grid must contain at least one point and no duplicates.")
@@ -51,6 +51,13 @@ def main() -> None:
         return
     if sys.argv[1:] == ["--count"]:
         print(len(points))
+        return
+    if sys.argv[1:] == ["--array-groups"]:
+        groups: dict[int, list[str]] = {}
+        for index, (D, _) in enumerate(points):
+            groups.setdefault(D, []).append(str(index))
+        for D, indices in groups.items():
+            print(D, ",".join(indices))
         return
     slurm_index = os.environ.get("SLURM_ARRAY_TASK_ID")
     if slurm_index is None:

@@ -18,7 +18,7 @@ def main() -> None:
     seed = 0
 
     conv_tol_chi = 1e-6
-    max_chi_iterations = 50
+    max_chi_iterations = 20
     required_stable_chi_iteration = 3
     conv_tol_ctmrg = 1e-6
     max_ctmrg_cycles = 2000

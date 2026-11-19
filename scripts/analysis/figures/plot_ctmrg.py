@@ -40,7 +40,7 @@ def main() -> None:
 
     if not (show_fig or save_fig):
         return
-    output_dir = root / "outputs" / "figures" / "analysis" / "ctmrg" / scan_dir.name
+    output_dir = root / "outputs" / "figures" / "ctmrg" / scan_dir.name
     if plot_chi_scan:
         scan_path = scan_dir / "scan.json"
         if scan_path.is_file():

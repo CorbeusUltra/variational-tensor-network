@@ -3,6 +3,8 @@
 import sys
 from shutil import get_terminal_size
 
+from ..tilings import Site
+
 
 def format_duration(duration: float) -> str:
     """Format a duration in seconds as days, hours, minutes, and seconds."""
@@ -67,6 +69,16 @@ def print_boxed(message: str = ""):
     print()
 
 
+def print_observables(local_S_z: dict[Site, tuple[float, ...]], m_z_over_m_sat: float, energy_per_spin: float) -> None:
+    for site, values_S_z in local_S_z.items():
+        print(f"\n  PEPS site : {site}")
+        for i, spin_z in enumerate(values_S_z, start=1):
+            print(f"    spin {i} | <S_{i}^z> : {spin_z:+.12f}")
+    print(f"\n  m_z/m_sat: {m_z_over_m_sat:.12f}\n")
+    print(f"\n  Energy per spin: {energy_per_spin:.12f}\n")
+
+
+
 # Legacy code
 
 # def compare_tilings(tiling_names: list[str], config: Config, chi_values: list[int], schedule: tuple[tuple[float, float], ...]) -> dict[str, dict]:
@@ -83,3 +95,4 @@ def print_boxed(message: str = ""):
 #     superscript = str(int(exponent)).translate(str.maketrans("-0123456789", "⁻⁰¹²³⁴⁵⁶⁷⁸⁹"))
 #     power = f"10{superscript}"
 #     return power if float(mantissa) == 1 else f"{mantissa} × {power}"
+

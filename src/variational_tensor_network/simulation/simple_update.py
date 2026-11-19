@@ -13,11 +13,17 @@ from variational_tensor_network._utils.reporting import (
     print_boxed,
     print_run_summary,
 )
+from variational_tensor_network.defaults import (
+    DEFAULT_SU_MAX_STEPS,
+    DEFAULT_SU_SCHEDULE,
+)
 from variational_tensor_network.initialize import (
     initial_a_sites,
+    initial_a_sites_from_lower_D,
     initial_bond_weights,
+    initial_bond_weights_from_lower_D,
 )
-from variational_tensor_network.models import MODELS
+from variational_tensor_network.models import MODELS, model_bond_hamiltonians
 from variational_tensor_network.objects import Config
 from variational_tensor_network.plots.simple_update import (
     plot_simple_update_diagnostics,
@@ -38,21 +44,49 @@ def matching_states(directory: Path, query: dict) -> Iterator[tuple[Path, dict]]
             yield path, state
 
 
-def compute_simple_update(model_name: str, parameters_by_model: dict[str, dict[str, float]], tiling_name: str, D: int, seed: int, schedule: tuple[tuple[float, float], ...] = ( (0.1, 1e-7), (0.01, 1e-8), (0.001, 1e-9), ), *, max_sweeps: int = 2000, verbosity: int = 1) -> dict[str, Any]:
+def is_usable_su_state(state: dict[str, Any]) -> bool:
+    info = state["info_su"]
+    return (info["status"] == "converged" and isfinite(info["energy_per_peps_site"]))
+
+
+def compute_simple_update(model_name: str, parameters_by_model: dict[str, dict[str, float]], tiling_name: str, D: int, seed: int, schedule: tuple[tuple[float, float], ...], *, max_sweeps: int, verbosity: int = 1) -> dict[str, Any]:
     model = MODELS[model_name]
     parameters = parameters_by_model[model_name]
     parameters = {name: float(value) for name, value in parameters.items()}
     parameters_text = ", ".join(f"{name}={value:g}" for name, value in parameters.items())
-    H = model["bond"](**parameters)
     d = model["d"]
     config = Config(d=d, D=D)
     sites_coords, unitcell_coord = TILINGS[tiling_name]
-    torch.manual_seed(seed)
+    H = model_bond_hamiltonians(model_name, parameters, sites_coords)
     heading = f"{model['label']} ({parameters_text}) | {tiling_name} | (D={D}, d={d})"
     if verbosity >= 1:
         print_boxed(heading)
-    a_sites = initial_a_sites(config, sites_coords)
-    bond_weights = initial_bond_weights(a_sites)
+    source = None
+    if D > 2:
+        for lower_D in range(D - 1, 1, -1):
+            query = {"model": model_name, "parameters": parameters, "tiling": tiling_name, "D": lower_D}
+            candidates = ((path, state) for path, state in matching_states( root / "data" / "simple_update", query ) if is_usable_su_state(state))
+            source = min(candidates, key=lambda item: item[1]["info_su"]["energy_per_peps_site"], default=None)
+            if source is not None:
+                break
+    if source is None:
+        if D > 2:
+            print(f"\nNo converged lower-D state found for D={D} with these model parameters. Running a random initialization\n")
+        torch.manual_seed(seed)
+        a_sites = initial_a_sites(config, sites_coords)
+        bond_weights = initial_bond_weights(a_sites)
+        initialization = "random"
+        source_D = None
+        source_filename = None
+    else:
+        source_path, previous = source
+        source_D = previous["metadata"]["D"]
+        source_filename = source_path.name
+        print(f"Initializing D={D} from D={source_D}: {source_path}")
+        a_sites = initial_a_sites_from_lower_D(previous["a_sites"], D)
+        bond_weights = initial_bond_weights_from_lower_D(previous["a_sites"], previous["bond_weights"], D)
+        initialization = "lower_D"
+
     a_sites, bond_weights, info_su = simple_update(a_sites, bond_weights, unitcell_coord, H, schedule=schedule, max_sweeps=max_sweeps, verbosity=verbosity)
     print_run_summary("Simple update", info_su, verbosity=verbosity)
     if verbosity >= 1:
@@ -60,14 +94,16 @@ def compute_simple_update(model_name: str, parameters_by_model: dict[str, dict[s
         energy_per_spin = info_su["energy_per_peps_site"] / spins_per_peps_site
         print(f"  Energy per spin: {energy_per_spin:.12f}\n", flush=True)
     metadata = {
-        "schema": 1,
+        "schema": 2,
         "model": model_name,
         "parameters": parameters,
         "tiling": tiling_name,
         "D": config.D,
         "d": config.d,
         "dtype": str(next(iter(a_sites.values())).dtype),
-        "initialization": "random",
+        "initialization": initialization,
+        "source_D": source_D,
+        "source_filename": source_filename,
         "seed": seed,
         "schedule": schedule,
         "max_sweeps": max_sweeps,
@@ -78,7 +114,7 @@ def compute_simple_update(model_name: str, parameters_by_model: dict[str, dict[s
 
 def save_simple_update_state(state: dict[str, Any], output_dir: Path) -> Path:
     metadata = state["metadata"]
-    identity = {key: value for key, value in metadata.items() if key not in {"initialization", "seed", "schedule", "dtype", "max_sweeps"}}
+    identity = {key: value for key, value in metadata.items() if key in {"schema", "model", "parameters", "tiling", "D", "d"}}
     key = json.dumps(identity, sort_keys=True).encode("utf-8")
     tag = sha256(key).hexdigest()
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -89,7 +125,7 @@ def save_simple_update_state(state: dict[str, Any], output_dir: Path) -> Path:
     return state_path
 
 
-def run_simple_update(model_name: str, parameters_by_model: dict[str, dict[str, float]], tiling_name: str, D: int, seed: int, schedule: tuple[tuple[float, float], ...] = ((.1, 1e-7), (.01, 5e-8), (.001, 1e-8)), *, max_sweeps: int = 3000, verbosity: int = 1, show_fig: bool, save_fig: bool) -> tuple[Path, dict]:
+def run_simple_update(model_name: str, parameters_by_model: dict[str, dict[str, float]], tiling_name: str, D: int, seed: int, schedule: tuple[tuple[float, float], ...] = DEFAULT_SU_SCHEDULE, *, max_sweeps: int = DEFAULT_SU_MAX_STEPS, verbosity: int = 1, show_fig: bool, save_fig: bool) -> tuple[Path, dict]:
     state = compute_simple_update(model_name, parameters_by_model, tiling_name, D, seed, schedule=schedule, max_sweeps=max_sweeps, verbosity=verbosity)
     state_path = save_simple_update_state(state, root / "data" / "simple_update")
     if verbosity >= 1:
@@ -98,14 +134,14 @@ def run_simple_update(model_name: str, parameters_by_model: dict[str, dict[str, 
     if show_fig or save_fig:
         info_su = state["info_su"]
         metadata = state["metadata"]
-        plot_simple_update_diagnostics(info_su, metadata, show=show_fig, output_dir = root / "outputs" / "figures" / "analysis" if save_fig else None)
+        plot_simple_update_diagnostics(info_su, metadata, show=show_fig, output_dir = root / "outputs" / "figures" / "simple_update" if save_fig else None)
     return state_path, state
 
 
 def select_or_run_su(model_name: str, parameters_by_model: dict[str, dict[str, float]], tiling_name: str, D: int, seed: int, *, verbosity: int = 1) -> tuple[Path, dict[str, Any]]:
     parameters = parameters_by_model[model_name]
     query = {"model": model_name, "parameters": parameters, "tiling": tiling_name, "D": D}
-    candidates = ((path, state) for path, state in matching_states(root / "data" / "simple_update", query) if state["info_su"]["status"] == "converged" and isfinite(state["info_su"]["energy_per_peps_site"]))
+    candidates = ((path, state) for path, state in matching_states(root / "data" / "simple_update", query) if is_usable_su_state(state))
     selected = min(candidates, key=lambda item: item[1]["info_su"]["energy_per_peps_site"], default=None)
     if selected is None:
         if verbosity >= 1:

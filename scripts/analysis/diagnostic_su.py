@@ -18,7 +18,7 @@ def main() -> None:
     seed = 0
 
     max_sweeps = 2000
-    schedule = ((.1, 1e-7), (.01, 5e-8), (.005, 1e-8)) # schedule = ((.01, 1e-6), (.001, 1e-7)) ; schedule = ((.001, 1e-7),) ; schedule = ((.1, 1e-5), (.01, 1e-7), (.001, 1e-8))
+    schedule = ((.01, 1e-6),(.001, 1e-8)) # schedule = ((.1, 1e-7), (.01, 5e-8), (.005, 1e-8)) # schedule = ((.01, 1e-6), (.001, 1e-7)) # schedule = ((.001, 1e-7),) # schedule = ((.1, 1e-5), (.01, 1e-7), (.001, 1e-8))
 
     verbosity = 2
     show_fig = False

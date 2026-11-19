@@ -8,11 +8,18 @@ from torch import Tensor, einsum
 from torch.linalg import vector_norm
 
 from ._utils.reporting import format_duration, print_progress
-from .objects import BondWeights, SiteWeights
+from .defaults import DEFAULT_SU_MAX_STEPS, DEFAULT_SU_SCHEDULE, DEFAULT_SU_STABLE_STEPS
+from .objects import (
+    BondOperators,
+    BondWeights,
+    Direction,
+    SiteWeights,
+    operator_on_bond,
+)
 from .observables import expectation_from_rdm
 from .peps import TensorSites, get_site_weights, rotate_site_weights
 from .rdms import simple_update_rdms
-from .tilings import UnitCellCoord
+from .tilings import Site, UnitCellCoord
 
 
 def inverse_weights(weights: Tensor, rtol: float = 1e-12) -> Tensor:
@@ -25,7 +32,7 @@ def inverse_weights(weights: Tensor, rtol: float = 1e-12) -> Tensor:
     return inverse
 
 
-def simple_update_iteration(a: Tensor, b: Tensor, weights_a: SiteWeights, weights_b: SiteWeights, G: Tensor) -> tuple[Tensor,Tensor,Tensor]:
+def simple_update_iteration(a: Tensor, b: Tensor, weights_a: SiteWeights, weights_b: SiteWeights, G: BondOperators, site: Site, direction: Direction) -> tuple[Tensor,Tensor,Tensor]:
     """
     Assuming the common weight is the down weight of a and the up weight of b.
     """
@@ -33,7 +40,8 @@ def simple_update_iteration(a: Tensor, b: Tensor, weights_a: SiteWeights, weight
     bbar = einsum("rulds,r,l,d->rulds", b, weights_b.r, weights_b.l, weights_b.d)
 
     abarbbar = einsum("rulqs,RqLDS,q->rulLDRsS",abar,bbar,weights_a.d)
-    M = einsum("rulLDRsS,tTsS->rulLDRtT", abarbbar, G) # M or abarbbar_gated
+    G_bond = operator_on_bond(G, (site, direction))
+    M = einsum("rulLDRsS,tTsS->rulLDRtT", abarbbar, G_bond) # M or abarbbar_gated
     D, d = a.shape[3], a.shape[-1]
     M = M.permute(0,1,2,6,3,4,5,7)
     M = M.reshape(D**3 * d, D**3 * d)
@@ -51,7 +59,7 @@ def simple_update_iteration(a: Tensor, b: Tensor, weights_a: SiteWeights, weight
     return a_new, b_new, S
 
 
-def simple_update_sweep(a_sites: TensorSites, bond_weights: BondWeights, unitcell_coord: UnitCellCoord, G: Tensor) -> None:
+def simple_update_sweep(a_sites: TensorSites, bond_weights: BondWeights, unitcell_coord: UnitCellCoord, G: BondOperators) -> None:
     """Update site tensors and bond weights in place during one sweep."""
     for site, direction in bond_weights:
         x, y = site
@@ -69,7 +77,7 @@ def simple_update_sweep(a_sites: TensorSites, bond_weights: BondWeights, unitcel
             b = b.permute(1, 2, 3, 0, 4)
             weights_a = rotate_site_weights(weights_a)
             weights_b = rotate_site_weights(weights_b)
-        a_new, b_new, lambda_new = simple_update_iteration(a, b, weights_a, weights_b, G)
+        a_new, b_new, lambda_new = simple_update_iteration(a, b, weights_a, weights_b, G, site, direction)
         if direction == "r":
             a_new = a_new.permute(3, 0, 1, 2, 4)
             b_new = b_new.permute(3, 0, 1, 2, 4)
@@ -78,7 +86,7 @@ def simple_update_sweep(a_sites: TensorSites, bond_weights: BondWeights, unitcel
         bond_weights[(site, direction)] = lambda_new
 
 
-def simple_update(a_sites: TensorSites, bond_weights: BondWeights, unitcell_coord: UnitCellCoord, H: Tensor, *, schedule: tuple[tuple[float, float], ...] = ((.1, 1e-7), (.01, 5e-8), (.001, 1e-8)), max_sweeps: int = 3000, required_stable_sweeps: int = 100, verbosity: int = 1) -> tuple[TensorSites, BondWeights, dict]:
+def simple_update(a_sites: TensorSites, bond_weights: BondWeights, unitcell_coord: UnitCellCoord, H: BondOperators, *, schedule: tuple[tuple[float, float], ...] = DEFAULT_SU_SCHEDULE, max_sweeps: int = DEFAULT_SU_MAX_STEPS, required_stable_sweeps: int = DEFAULT_SU_STABLE_STEPS, verbosity: int = 1) -> tuple[TensorSites, BondWeights, dict]:
     """Optimize a PEPS without modifying the input dictionaries or their tensors."""
     if max_sweeps < 1:
         raise ValueError("max_sweeps must be at least 1.")
@@ -99,21 +107,26 @@ def simple_update(a_sites: TensorSites, bond_weights: BondWeights, unitcell_coor
     }
     d = next(iter(a_sites.values())).shape[-1]
     rdms = simple_update_rdms(a_sites, bond_weights, unitcell_coord)
-    energies = {bond: expectation_from_rdm(rho, H).item() for bond, rho in rdms.items()}
+    energies = {bond: expectation_from_rdm(rho, operator_on_bond(H, bond)).item() for bond, rho in rdms.items()}
     info["initial_energy_per_peps_site"] = sum(energies.values()) / len(a_sites)
     for tau, tol in schedule:
         start = last_update = perf_counter()
         update_interval = 0.1 if verbosity >= 3 else 1.0
         if verbosity >= 1:
             print(f"\n  tau={tau:.2e}, tol={tol:.2e}", flush=True)
-        G = torch.linalg.matrix_exp(-tau * H).reshape(d, d, d, d)
+        if isinstance(H, Tensor):
+            G = torch.linalg.matrix_exp(-tau * H).reshape(d, d, d, d)
+        else:
+            G = {}
+            for bond, H_bond in H.items():
+                G[bond] = torch.linalg.matrix_exp(-tau * H_bond).reshape(d, d, d, d)
         converged = False
         stable_sweeps = 0
         for sweep in range(1, max_sweeps + 1):
             old_energies = energies
             simple_update_sweep(a_sites, bond_weights, unitcell_coord, G)
             rdms = simple_update_rdms(a_sites, bond_weights, unitcell_coord)
-            energies = {bond: expectation_from_rdm(rho, H).item() for bond, rho in rdms.items()}
+            energies = {bond: expectation_from_rdm(rho, operator_on_bond(H, bond)).item() for bond, rho in rdms.items()}
             energy_per_peps_site = sum(energies.values()) / len(a_sites)
             # error = abs(sum(energies[bond] - old_energies[bond] for bond in energies)) # |∑_bonds (E_new - E_old)| ; tracks total unit-cell energy, but bond changes can cancel
             error = max(abs(energies[bond] - old_energies[bond]) for bond in energies) # max_bonds |E_new - E_old| ; requires every bond-energy change to be within tolerance

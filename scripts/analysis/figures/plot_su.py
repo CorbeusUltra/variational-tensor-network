@@ -15,7 +15,7 @@ def main() -> None:
     if not (show_fig or save_fig):
         return
     state = torch.load(state_path, map_location="cpu", weights_only=True, mmap=True)
-    output_dir = root / "outputs" / "figures" / "analysis" / "simple_update" if save_fig else None
+    output_dir = root / "outputs" / "figures" / "simple_update" if save_fig else None
     plot_simple_update_diagnostics(state["info_su"], state["metadata"], show=show_fig, output_dir=output_dir)
 
 
