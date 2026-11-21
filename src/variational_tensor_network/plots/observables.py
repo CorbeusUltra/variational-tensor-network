@@ -1,4 +1,4 @@
-from itertools import cycle
+from itertools import cycle, pairwise
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -19,6 +19,23 @@ def plot_magnetization(curves_by_D: dict[int, list[tuple[float, float]]], *, tit
     ax.grid(alpha=0.3)
     ax.legend()
     finish_plot(fig, title=title, show=show, output_path=output_path)
+
+
+def plot_magnetization_sweep(curves, *, show=False, output_path=None):
+    fig, ax = plt.subplots()
+    for direction, label, color, style in (("up", r"$h$ increasing", "C0", "-"), ("down", r"$h$ decreasing", "C1", "-")):
+        points = curves[direction]
+        h, m = zip(*points)
+        ax.plot(h, m, marker="o", markersize=2, color=color, linestyle=style, label=label)
+        segments = [(a, b) for a, b in pairwise(points)]
+        if segments:
+            a, b = segments[len(segments) // (2 if direction == "up" else 3)]
+            ax.annotate("", xy=b, xytext=a,
+                        arrowprops={"arrowstyle": "->", "color": color})
+    ax.set(title=r"$D=2$", xlabel=r"$h$", ylabel=r"$m_z/m_{\mathrm{sat}}$")
+    ax.grid(alpha=0.3)
+    ax.legend()
+    finish_plot(fig, show=show, output_path=output_path)
 
 
 def plot_energy(curves_by_D: dict[int, list[tuple[float, float]]], *, title: str = "", show: bool = False, output_path: Path | None = None) -> None:

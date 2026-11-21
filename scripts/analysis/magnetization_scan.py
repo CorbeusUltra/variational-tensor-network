@@ -1,21 +1,22 @@
 import os
 import sys
+from pathlib import Path
 from pprint import pp
-from typing import Any
+from typing import Any, Literal
 
 
-def run_magnetization_point(D: int = 2, h: float = 3) -> dict[str, Any]:
+def run_magnetization_point(D: int = 2, h: float = 3, *, source_path: Path | None = None, sweep_direction: Literal["up", "down"] | None = None) -> dict[str, Any]:
     from variational_tensor_network.simulation.chi_scan import run_chi_scan
-    model_name = "xss"  # "heisenberg", "shastry_sutherland", "ffb", "xss"
+    model_name = "x_shastry_sutherland"  # "heisenberg", "shastry_sutherland", "ffb", "x_shastry_sutherland"
     JD = 1.0
-    J = JD *.3
+    J = JD *.25
     J1 = JD * .35
     J2 = JD * .25
     parameters_by_model = {
         "heisenberg":           {"J": J, "h": h},  # Expected energy per spin : −0.669441857(7) * J
         "shastry_sutherland":   {"JD": JD, "J": J, "h": h},  # Expected energy per spin : -3/8 * JD  valid for J/JD <≈ 0.429(6)
         "ffb":                  {"JD": JD, "J": J, "h": h},  # Expected energy per spin : -3/8 * JD  valid for J/JD <≈ 0,675(2)
-        "xss": {"JD": JD, "J1": J1, "J2": J2, "h": h}, 
+        "x_shastry_sutherland": {"JD": JD, "J1": J1, "J2": J2, "h": h}, 
     }
     tiling_name = "abcd"  # "checkerboard", "abcd", "rectangle_2x3"
     seed = 0
@@ -30,8 +31,26 @@ def run_magnetization_point(D: int = 2, h: float = 3) -> dict[str, Any]:
     show_fig = False
     save_fig = False
 
-    return run_chi_scan(model_name, parameters_by_model, tiling_name, D, seed, max_chi_iterations=max_chi_iterations , conv_tol_chi=conv_tol_chi, required_stable_chi_iteration=required_stable_chi_iteration, max_ctmrg_cycles=max_ctmrg_cycles, conv_tol_ctmrg=conv_tol_ctmrg, verbosity=verbosity, show_fig=show_fig, save_fig=save_fig)
+    su_state_path = None
+    if sweep_direction is not None:
+        from variational_tensor_network.simulation.simple_update import is_usable_su_state, run_simple_update  # noqa: I001
+        su_state_path, state = run_simple_update(model_name, parameters_by_model, tiling_name, D, seed, initialization="nearby_h" if source_path is not None else None, source_path=source_path, sweep_direction=sweep_direction, verbosity=verbosity, show_fig=False, save_fig=False)
+        if not is_usable_su_state(state):
+            return {"status": "su_failed", "su_state_path": su_state_path}
+    result = run_chi_scan(model_name, parameters_by_model, tiling_name, D, seed, max_chi_iterations=max_chi_iterations , conv_tol_chi=conv_tol_chi, required_stable_chi_iteration=required_stable_chi_iteration, max_ctmrg_cycles=max_ctmrg_cycles, conv_tol_ctmrg=conv_tol_ctmrg, su_state_path=su_state_path, verbosity=verbosity, show_fig=show_fig, save_fig=save_fig)
+    result["su_state_path"] = su_state_path
+    return result
 
+
+def run_field_sweep(fields: list[float], direction: Literal["up", "down"]) -> None:
+    source_path = None
+    for h in fields:
+        print(f"D=2 | {direction} | h={h:g}", flush=True)
+        result = run_magnetization_point(D=2, h=h, source_path=source_path, sweep_direction=direction)
+        if result["status"] == "su_failed":
+            print(f"Branche {direction} arrêtée à h={h:g}", flush=True)
+            break
+        source_path = result["su_state_path"]
 
 
 def linspace(start: float, stop: float, n: int):
@@ -40,10 +59,28 @@ def linspace(start: float, stop: float, n: int):
     return [round(start + i * (stop - start) / (n - 1),10) for i in range(n)]
 
 
+def arange(start: float, stop: float, step: float) -> list[float]:
+    if step <= 0:
+        raise ValueError(f"step must be positive, got {step}")
+    if start >= stop:
+        raise ValueError(f"must have start < stop, got start={start} >= stop={stop}")
+    values = []
+    h = start
+    while round(h, 10) < stop:
+        values.append(round(h, 10))
+        h += step
+    return values
+
+
 def main() -> None:
-    D_VALUES = [4,5,6,7,8]
-    start, stop, n = 1.9, 2.7, 30
-    points = [(D, h) for D in D_VALUES for h in linspace(start, stop, n)]
+    D_VALUES = [2,3,4,5,6,7]
+    start, stop, step = 1.9, 2.7, .025
+    h_VALUES = arange(start, stop, step)
+    points = [(D, h) for D in D_VALUES for h in h_VALUES]
+    if sys.argv[1:] == ["--continuation"]:
+        run_field_sweep(h_VALUES, "up")
+        run_field_sweep(h_VALUES[::-1], "down")
+        return
     if not points or len(points) != len(set(points)):
         raise ValueError("The scan grid must contain at least one point and no duplicates.")
     if sys.argv[1:] == ["--points"]:
@@ -59,6 +96,7 @@ def main() -> None:
         for D, indices in groups.items():
             print(D, ",".join(indices))
         return
+    print(f"\n{len(h_VALUES)} values of h from {start} to {stop}, step = {step}\n")
     slurm_index = os.environ.get("SLURM_ARRAY_TASK_ID")
     if slurm_index is None:
         for D, h in points:

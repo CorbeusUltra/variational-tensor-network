@@ -21,7 +21,10 @@ from variational_tensor_network.peps import (
     double_layer,
     get_site_weights,
 )
+from variational_tensor_network.plots.ctmrg import plot_ctmrg_convergence
 from variational_tensor_network.tilings import TILINGS, UnitCellCoord
+
+from .simple_update import is_usable_su_state, select_or_run_su
 
 root = find_project_root(__file__)
 
@@ -63,10 +66,37 @@ def compute_ctmrg_environment(prepared: PreparedCTMRG, chi: int, *, max_cycles: 
     return env_sites, info_ctmrg
 
 
+def run_ctmrg(model_name: str, parameters_by_model: dict[str, dict[str, float]], tiling_name: str, D: int, seed: int, *, chi: int, max_cycles: int, conv_tol: float, verbosity: int = 1, show_fig: bool = False, save_fig: bool = False, by_site: bool = False) -> tuple[Path, dict[str, Any]]:
+    """Run and save a fixed-chi CTMRG diagnostic."""
+    state_path, state = select_or_run_su(model_name, parameters_by_model, tiling_name, D, seed, verbosity=verbosity)
+    if not is_usable_su_state(state):
+        raise RuntimeError(f"Unusable Simple Update state: {state_path}")
+    print(f"PEPS state: {state_path}", flush=True)
+    _, info = compute_ctmrg_environment(prepare_ctmrg(state), chi, max_cycles=max_cycles, conv_tol=conv_tol, verbosity=verbosity)
+    result = {"metadata": {"su_metadata": state["metadata"]}, "info_ctmrg": info}
+    results_dir = ctmrg_scan_dir(result["metadata"])
+    results_dir.mkdir(parents=True, exist_ok=True)
+    result_path = results_dir / f"diagnostic_chi={chi}.pt"
+    with NamedTemporaryFile("wb", dir=results_dir, delete=False) as stream:
+        torch.save(result, stream)
+    Path(stream.name).replace(result_path)
+    print(f"CTMRG result saved to {result_path}", flush=True)
+    if show_fig or save_fig:
+        output_dir = root / "outputs" / "figures" / "ctmrg" / results_dir.name
+        output_path = output_dir / f"cycles_{result_path.stem}" if save_fig else None
+        plot_ctmrg_convergence(
+            result, by_site=by_site, show=show_fig, output_path=output_path,
+        )
+    return result_path, result
+
+
 def ctmrg_scan_dir(metadata: dict[str, Any]) -> Path:
     su_metadata = metadata["su_metadata"]
     scan_identity = {key: su_metadata[key] for key in ("schema", "model", "parameters", "tiling", "D", "d") }
-    key = json.dumps( scan_identity, sort_keys=True, allow_nan=False ).encode("utf-8")
+    direction = su_metadata.get("sweep_direction")
+    if direction is not None:
+        scan_identity["sweep_direction"] = direction
+    key = json.dumps(scan_identity, sort_keys=True, allow_nan=False).encode("utf-8")
     tag = sha256(key).hexdigest()
     return root / "data" / "ctmrg" / tag
 

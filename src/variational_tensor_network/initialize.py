@@ -1,18 +1,21 @@
 """Initialize the bulk states and their environments."""
 
+from math import isfinite
 from typing import Literal, get_args
 
 import torch
 from torch import Tensor, ones, rand
 from torch.linalg import vector_norm
 
-from .objects import BondWeights, Config, Environment
+from .objects import BondOperators, BondWeights, Config, Environment
 from .peps import TensorSites, double_layer
-from .tilings import Site
+from .simple_update import simple_update_gates, simple_update_sweep
+from .tilings import Site, UnitCellCoord
 
 torch.set_default_dtype(torch.float64)
 
 type InitMethod = Literal["random", "ones"]
+type EnvInitMethod = InitMethod | Literal["from_bulk"]
 _InitMethodChoices = ", ".join(repr(name) for name in get_args(InitMethod.__value__))
 
 
@@ -46,6 +49,12 @@ def initial_bond_weights(a_sites: TensorSites, method: InitMethod = "random") ->
     return bond_weights
 
 
+def initial_simple_update_state(config: Config, sites_coords: tuple[Site, ...], method: InitMethod = "random") -> tuple[TensorSites, BondWeights]:
+    a_sites = initial_a_sites(config, sites_coords, method=method)
+    bond_weights = initial_bond_weights(a_sites, method=method)
+    return a_sites, bond_weights
+
+
 def initial_a_sites_from_lower_D(a_sites: TensorSites, D: int, epsilon: float = 1e-3) -> TensorSites:
     """Expand site tensors from lower D, adding noise in new components."""
     D_old = next(iter(a_sites.values())).shape[0]
@@ -66,8 +75,6 @@ def initial_a_sites_from_lower_D(a_sites: TensorSites, D: int, epsilon: float = 
     return a_sites_new
 
 
-
-
 def initial_bond_weights_from_lower_D(a_sites: TensorSites, bond_weights: BondWeights, D: int, epsilon: float = 1e-3) -> BondWeights:
     """Expand bond weights, initializing new entries to small positive values."""
     D_old = next(iter(a_sites.values())).shape[0]
@@ -85,18 +92,30 @@ def initial_bond_weights_from_lower_D(a_sites: TensorSites, bond_weights: BondWe
     return bond_weights_new
 
 
+def initial_state_from_lower_D_padding(a_sites: TensorSites, bond_weights: BondWeights, D: int, epsilon: float = 1e-3) -> tuple[TensorSites, BondWeights]:
+    weights_new = initial_bond_weights_from_lower_D(a_sites, bond_weights, D, epsilon=epsilon)
+    a_sites_new = initial_a_sites_from_lower_D(a_sites, D, epsilon=epsilon)
+    return a_sites_new, weights_new
 
 
+# def initial_state_from_lower_D_svd(a_sites: TensorSites, bond_weights: BondWeights, D: int, unitcell_coord: UnitCellCoord, H: BondOperators) -> tuple[TensorSites, BondWeights]:
+#     raise NotImplementedError("Lower-D SVD initialization is not implemented yet.")
 
-
-
-
-def initial_single_and_double_layer_sites(config: Config, sites_coords: tuple[Site, ...],  method: InitMethod = "random") -> tuple[TensorSites, TensorSites]:
-    """Initialize site tensors and build their double layers."""
-    a_sites = initial_a_sites(config, sites_coords, method=method)
-    A_sites = {site: double_layer(a) for site, a in a_sites.items()}
-    return a_sites, A_sites
-
+def initial_state_from_lower_D_svd(a_sites: TensorSites, bond_weights: BondWeights, D: int, unitcell_coord: UnitCellCoord, H: BondOperators, *, tau: float) -> tuple[TensorSites, BondWeights]:
+    """Grow the virtual bonds with one simple-update sweep."""
+    if not a_sites or not bond_weights:
+        raise ValueError("Cannot expand an empty PEPS.")
+    a = next(iter(a_sites.values()))
+    D_old, d = a.shape[0], a.shape[-1]
+    if D <= D_old:
+        raise ValueError(f"D={D} must be > D_old={D_old}.")
+    if not isfinite(tau) or tau <= 0:
+        raise ValueError("SVD initialization requires a finite positive tau.")
+    G = simple_update_gates(H, d, tau)
+    a_sites_new = a_sites.copy()
+    bond_weights_new = bond_weights.copy()
+    simple_update_sweep(a_sites_new, bond_weights_new, unitcell_coord, G, D_out=D)
+    return a_sites_new, bond_weights_new
 
 
 
@@ -111,7 +130,7 @@ def initial_boundary(config: Config, method: InitMethod = "ones") -> Tensor:
         raise ValueError(f"Unknown initialization method {method!r}. Expected one of {_InitMethodChoices}.")
 
 
-def initial_env(delta: Tensor, A: Tensor, config: Config, method: Literal["from_bulk", "random", "ones"] = "from_bulk") -> Environment:
+def initial_env(delta: Tensor, A: Tensor, config: Config, method: EnvInitMethod = "from_bulk") -> Environment:
     D2 = config.D2
     chi = config.chi
     if method == "from_bulk":
@@ -142,7 +161,7 @@ def initial_env(delta: Tensor, A: Tensor, config: Config, method: Literal["from_
     return env
 
 
-def initial_env_sites(A_sites: TensorSites, delta: Tensor, config: Config, method: Literal["from_bulk", "random", "ones"] = "from_bulk") -> dict[Site, Environment]:
+def initial_env_sites(A_sites: TensorSites, delta: Tensor, config: Config, method: EnvInitMethod = "from_bulk") -> dict[Site, Environment]:
     env_sites: dict[Site, Environment] = {}
     for site, A in A_sites.items():
         env_sites[site] = initial_env(delta, A, config, method=method)

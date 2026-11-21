@@ -23,7 +23,7 @@ def main() -> None:
     failures = 0
     for tiling in ("checkerboard", "abcd"):
         sites, _ = TILINGS[tiling]
-        hamiltonians = model_bond_hamiltonians("xss", parameters, sites)
+        hamiltonians = model_bond_hamiltonians("x_shastry_sutherland", parameters, sites)
         print(f"\n{tiling}")
         for site in sites:
             for direction, expected in expected_pairs[site].items():
@@ -37,7 +37,7 @@ def main() -> None:
                 passed = (actual == expected)
                 status = "OK" if passed else "FAIL"
                 found = actual if actual is not None else "unrecognized matrix"
-                print( f"  {site} {direction} | J1 found: {found} | expected: {expected} | {status}" )
+                print(f"  {site} {direction} | J1 found: {found} | expected: {expected} | {status}")
                 failures += int(not passed)
     if failures:
         raise SystemExit(f"\n{failures} bond check(s) failed.")

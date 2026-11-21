@@ -32,8 +32,8 @@ def get_halves(site: Site, A_sites: TensorSites, env_sites: EnvSites, unitcell_c
     Q_ur = cached_einsum("BKC,CL,cKbk,Lcl->Bbkl", env_at(+1,-1).T_u, env_at(+2,-1).C_ur, A_at(+1,0), env_at(+2,0).T_r)
     Q_dl = cached_einsum("AI,BJA,Iai,bjaJ->ijBb", env_at(-1,+2).C_dl, env_at(0,+2).T_d, env_at(-1,+1).T_l, A_at(0,+1))
     Q_dr = cached_einsum("CKB,LC,ckbK,lcL->Bbkl", env_at(+1,+2).T_d, env_at(+2,+2).C_dr, A_at(+1,+1), env_at(+2,+1).T_r)
-    # R    = einsum( "IA,AJB,BKC,CL,iaI,bJaj,cKbk,Lcl->ijkl", env_at(-1, -1).C_ul, env_at(0, -1).T_u, env_at(+1, -1).T_u, env_at(+2, -1).C_ur, env_at(-1, 0).T_l, A_at(0, 0), A_at(+1, 0), env_at(+2, 0).T_r)
-    # Rbar = einsum( "AI,BJA,CKB,LC,Iai,bjaJ,ckbK,lcL->ijkl", env_at(-1, +2).C_dl, env_at(0, +2).T_d, env_at(+1, +2).T_d, env_at(+2, +2).C_dr, env_at(-1, +1).T_l, A_at(0, +1), A_at(+1, +1), env_at(+2, +1).T_r)
+    # R    = einsum("IA,AJB,BKC,CL,iaI,bJaj,cKbk,Lcl->ijkl", env_at(-1, -1).C_ul, env_at(0, -1).T_u, env_at(+1, -1).T_u, env_at(+2, -1).C_ur, env_at(-1, 0).T_l, A_at(0, 0), A_at(+1, 0), env_at(+2, 0).T_r)
+    # Rbar = einsum("AI,BJA,CKB,LC,Iai,bjaJ,ckbK,lcL->ijkl", env_at(-1, +2).C_dl, env_at(0, +2).T_d, env_at(+1, +2).T_d, env_at(+2, +2).C_dr, env_at(-1, +1).T_l, A_at(0, +1), A_at(+1, +1), env_at(+2, +1).T_r)
     R = cached_einsum("ijBb,Bbkl->ijkl", Q_ul, Q_ur)
     Rbar = cached_einsum("ijBb,Bbkl->ijkl", Q_dl, Q_dr)
     return R, Rbar

@@ -1,6 +1,8 @@
 """Provide functions to optimize peps state, and measure them."""
 
 from hashlib import file_digest
+from math import isfinite
+from pathlib import Path
 from typing import Any
 
 import torch
@@ -18,7 +20,7 @@ from variational_tensor_network.defaults import (
     DEFAULT_CTMRG_TOL,
 )
 from variational_tensor_network.models import MODELS
-from variational_tensor_network.plots.ctmrg import plot_ctmrg_diagnostics
+from variational_tensor_network.plots.ctmrg import plot_energy_vs_chi
 
 from .ctmrg import (
     PreparedCTMRG,
@@ -68,7 +70,8 @@ def compute_chi_result(prepared: PreparedCTMRG, chi: int, *, su_provenance: dict
         "boundary_initialization": info_ctmrg["boundary_initialization"],
         "environment_initialization": info_ctmrg["environment_initialization"],
     }
-    return {"metadata": metadata, "info_ctmrg": info_ctmrg, "observables": observables, "measurement_error": measurement_error,}
+    # environment = {site: {field.name: getattr(env, field.name) for field in fields(env)} for site, env in env_sites.items()}
+    return {"metadata": metadata, "info_ctmrg": info_ctmrg, "observables": observables, "measurement_error": measurement_error} # , "environment": environment
 
 
 def finish_chi_scan(info: dict[str, Any], summary: dict[str, Any], *, stable_steps: int, verbosity: int) -> None:
@@ -116,6 +119,7 @@ def chi_scan(prepared: PreparedCTMRG, *, max_chi_iterations: int = DEFAULT_CHI_M
         "selected_chi": None,
         "m_z_over_m_sat": None,
         "energy_per_spin": None,
+        "sweep_direction": su_metadata.get("sweep_direction")
     }
     for index in range(1, max_chi_iterations + 1):
         chi = D**2 + 16 + 2 * D * (index - 1)
@@ -130,7 +134,7 @@ def chi_scan(prepared: PreparedCTMRG, *, max_chi_iterations: int = DEFAULT_CHI_M
         delta_energy = None
         if observables is not None and previous_energy_per_spin is not None:
             delta_energy = abs(observables["energy_per_spin"] - previous_energy_per_spin)
-        attempts.append({"chi": chi, "file": path.name, "ctmrg_status": info_ctmrg["status"], "delta_energy_per_spin": delta_energy, "measurement_error": result["measurement_error"],})
+        attempts.append({"chi": chi, "file": path.name, "ctmrg_status": info_ctmrg["status"], "delta_energy_per_spin": delta_energy, "measurement_error": result["measurement_error"], "energy_per_spin": observables["energy_per_spin"] if observables is not None else None})
         if observables is None:
             info["status"] = ("measurement_failed" if result["measurement_error"] is not None else "ctmrg_failed")
             break
@@ -152,13 +156,20 @@ def chi_scan(prepared: PreparedCTMRG, *, max_chi_iterations: int = DEFAULT_CHI_M
     return info
 
 
-def run_chi_scan(model_name: str, parameters_by_model: dict[str, dict[str, float]], tiling_name: str, D: int, seed: int, *, max_chi_iterations: int = DEFAULT_CHI_MAX_STEPS, conv_tol_chi: float = DEFAULT_CHI_TOL, required_stable_chi_iteration: int = DEFAULT_CHI_STABLE_STEPS, max_ctmrg_cycles: int = DEFAULT_CTMRG_MAX_STEPS, conv_tol_ctmrg: float = DEFAULT_CTMRG_TOL, verbosity: int = 1, show_fig: bool = False, save_fig: bool = False) -> dict:
-    state_path, _ = select_or_run_su( model_name, parameters_by_model, tiling_name, D, seed, verbosity=verbosity, )
+def run_chi_scan(model_name: str, parameters_by_model: dict[str, dict[str, float]], tiling_name: str, D: int, seed: int, *, max_chi_iterations: int = DEFAULT_CHI_MAX_STEPS, conv_tol_chi: float = DEFAULT_CHI_TOL, required_stable_chi_iteration: int = DEFAULT_CHI_STABLE_STEPS, max_ctmrg_cycles: int = DEFAULT_CTMRG_MAX_STEPS, conv_tol_ctmrg: float = DEFAULT_CTMRG_TOL, su_state_path: Path | None = None, verbosity: int = 1, show_fig: bool = False, save_fig: bool = False) -> dict:
+    state_path = su_state_path
+    if state_path is None:
+        state_path, _ = select_or_run_su(model_name, parameters_by_model, tiling_name, D, seed, verbosity=verbosity)
     with state_path.open("rb") as stream:
         su_sha256 = file_digest(stream, "sha256").hexdigest()
         stream.seek(0)
         state = torch.load(stream, map_location="cpu", weights_only=True)
-    su_provenance = {"sha256": su_sha256, "su_metadata": state["metadata"]}
+    su_metadata = state["metadata"]
+    expected_point = {"model": model_name, "parameters": {name: float(value) for name, value in parameters_by_model[model_name].items()}, "tiling": tiling_name, "D": D}
+    mismatches = [key for key, value in expected_point.items() if su_metadata.get(key) != value]
+    if mismatches:
+        raise ValueError(f"Incompatible SU checkpoint {state_path}: mismatched {', '.join(mismatches)}.")
+    su_provenance = {"sha256": su_sha256, "su_metadata": su_metadata}
     info_su = state["info_su"]
     if not is_usable_su_state(state):
         if verbosity >= 1:
@@ -173,6 +184,17 @@ def run_chi_scan(model_name: str, parameters_by_model: dict[str, dict[str, float
         print(f"SU energy per spin: {energy_per_spin:.12f}\n", flush=True)
     prepared = prepare_ctmrg(state)
     info = chi_scan(prepared, max_chi_iterations=max_chi_iterations, conv_tol_chi=conv_tol_chi, max_ctmrg_cycles=max_ctmrg_cycles, conv_tol_ctmrg=conv_tol_ctmrg, required_stable_chi_iteration=required_stable_chi_iteration, verbosity=verbosity, su_provenance=su_provenance)
-    if show_fig or save_fig:
-        plot_ctmrg_diagnostics( info["history_ctmrg"], su_metadata, spins_per_peps_site, show=show_fig, output_dir=root / "outputs" / "figures" / "ctmrg" if save_fig else None)
+    if not (show_fig or save_fig):
+        return info
+    history_ctmrg = info["history_ctmrg"]
+    chi_values = sorted(chi for chi, result in history_ctmrg.items() if result["status"] == "converged" and isfinite(result["energy_per_peps_site"]))
+    if not chi_values:
+        return info
+    energies = [history_ctmrg[chi]["energy_per_peps_site"] / spins_per_peps_site for chi in chi_values]
+    output_path = None
+    if save_fig:
+        parameters_tag = "_".join(f"{key}={value}" for key, value in su_metadata["parameters"].items())
+        name = ( f"ctmrg_energy_vs_chi_{su_metadata['model']}_{su_metadata['tiling']}_D={su_metadata['D']}_{parameters_tag}_seed={su_metadata['seed']}")
+        output_path = root / "outputs" / "figures" / "ctmrg" / name
+    plot_energy_vs_chi(chi_values, energies, show=show_fig, output_path=output_path)
     return info

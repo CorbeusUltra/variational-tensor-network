@@ -75,8 +75,11 @@ class SiteWeights:
             raise ValueError("Bond dimension must be strictly positive.")
         for direction in directions:
             weight = getattr(self, direction)
-            if weight.shape[0] != D:
-                raise ValueError(f"{direction} must have shape ({D},), got {tuple(weight.shape)}.")
+            if weight.ndim != 1 or weight.numel() == 0:
+                raise ValueError(f"{direction} must be a non-empty vector.")
+            if config is not None and weight.shape[0] != config.D:
+                raise ValueError(f"{direction} must have shape ({config.D},), got {tuple(weight.shape)}.")
+
 
 def operator_on_bond(operators: BondOperators, bond: tuple[Site, Direction]) -> Tensor:
     return operators if isinstance(operators, Tensor) else operators[bond]

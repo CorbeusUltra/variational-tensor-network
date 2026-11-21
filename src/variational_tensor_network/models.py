@@ -15,9 +15,7 @@ def interaction_term(S_alpha: Tensor, S_beta: Tensor, i: int, j: int, n: int, *,
     Left = eye(2 ** (i - 1))
     Middle = eye(2 ** (j - i - 1))
     Right = eye(2 ** (n - j))
-    return prefactor * reduce(
-        kron, (Left, S_alpha, Middle, S_beta, Right)
-    )  # equivalent to kron(kron(kron(kron(Left, S_alpha), Middle), S_beta), Right)
+    return prefactor * reduce(kron, (Left, S_alpha, Middle, S_beta, Right)) # equivalent to kron(kron(kron(kron(Left, S_alpha), Middle), S_beta), Right)
 
 
 def heisenberg_term(i: int = 1, j: int = 2, n: int = 2, *, J: float = 1.0) -> Tensor:
@@ -99,10 +97,10 @@ def shastry_sutherland_bond(JD: float, J: float, h: float, *, site=(0, 0), direc
        / \
       3───4
     """
-    return xss_bond(JD=JD, J1=J, J2=0.0, h=h, site=site, direction=direction)
+    return x_shastry_sutherland_bond(JD=JD, J1=J, J2=0.0, h=h, site=site, direction=direction)
 
 
-def xss_bond(JD: float, J1: float, J2: float, h: float = 0.0, *, site: Site = (0, 0), direction: Direction = "r"):
+def x_shastry_sutherland_bond(JD: float, J1: float, J2: float, h: float = 0.0, *, site: Site = (0, 0), direction: Direction = "r"):
     """
     Extended Shastry-Sutherland bond between dimers (1, 2) and (3, 4).
 
@@ -164,8 +162,8 @@ MODELS = {
         "spins_per_peps_site": 2,
         "label": "Shastry-Sutherland",
     },
-    "xss": {
-        "bond": xss_bond,
+    "x_shastry_sutherland": {
+        "bond": x_shastry_sutherland_bond,
         "d": 4,
         "spins_per_peps_site": 2,
         "label": "Extended Shastry-Sutherland",
@@ -175,7 +173,7 @@ MODELS = {
 
 def model_bond_hamiltonians(model_name: str, parameters: dict[str, float], sites_coords: tuple[Site, ...]):
     model_bond = MODELS[model_name]["bond"]
-    if model_name not in ("shastry_sutherland", "xss"):
+    if model_name not in ("shastry_sutherland", "x_shastry_sutherland"):
         return model_bond(**parameters)
     return {(site, direction): model_bond(**parameters, site=site, direction=direction) for site in sites_coords for direction in ("r", "d")}
 

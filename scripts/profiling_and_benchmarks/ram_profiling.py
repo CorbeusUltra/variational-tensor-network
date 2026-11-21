@@ -11,7 +11,7 @@ from variational_tensor_network._utils.path import find_project_root
 
 def main() -> None:
     root = find_project_root(__file__)
-    script_path = root / "scripts" / "analysis" / "diagnostic_su.py" # diagnostic_su | diagnostic_ctmrg
+    script_path = root / "scripts" / "diagnostics" / "su.py" # su | ctmrg | chi
     output_dir = root / "outputs" / "profiling"
     output_dir.mkdir(parents=True, exist_ok=True)
     data_path = output_dir / "ram.bin"

@@ -58,7 +58,7 @@ def plot_simple_update_diagnostics(info_su: dict[str, Any], metadata: dict[str, 
     if not show and output_dir is None:
         return
     parameters_tag = "_".join(f"{key}={value}" for key, value in metadata["parameters"].items())
-    plot_tag = (f"{metadata['model']}_{metadata['tiling']}_D={metadata['D']}_" f"{parameters_tag}_seed={metadata['seed']}")
+    plot_tag = (f"{metadata['model']}_{metadata['tiling']}_D={metadata['D']}_{parameters_tag}_seed={metadata['seed']}")
     for prefix, plot in (("su", plot_simple_update), ("su_by_stage", plot_simple_update_by_stage)):
         name = f"{prefix}_{plot_tag}"
         output_path = output_dir / name if output_dir is not None else None

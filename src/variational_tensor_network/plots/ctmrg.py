@@ -1,4 +1,3 @@
-from math import isfinite
 from pathlib import Path
 from typing import Any
 
@@ -7,11 +6,11 @@ import torch
 from matplotlib.patches import Circle
 from torch import Tensor
 
-from ..tilings import Site, UnitCellCoord
+from ..tilings import TILINGS, Site, UnitCellCoord
 from ._utils import finish_plot
 
 
-def plot_ctmrg_convergence(errors: list[float], title: str = "", show: bool = False, output_path: Path | None = None, *, tolerance: float | None = None) -> None:
+def plot_ctmrg_convergence_max(errors: list[float], title: str = "", show: bool = False, output_path: Path | None = None, *, tolerance: float | None = None) -> None:
     cycles = range(2, len(errors) + 2)
     fig, ax = plt.subplots()
     ax.semilogy(cycles, errors, "-", color="blue")
@@ -52,7 +51,25 @@ def plot_ctmrg_convergence_by_site(errors: list[Tensor], tolerance: float, sites
     finish_plot(fig, title=title, show=show, output_path=output_path)
 
 
-def plot_energy_vs_chi(chi_values: list[int], energies: list[float], D: int, title: str = "", show: bool = False, output_path: Path | None = None) -> None:
+def plot_ctmrg_convergence(result: dict[str, Any], *, by_site: bool = False, show: bool = False, output_path: Path | None = None) -> None:
+    info = result["info_ctmrg"]
+    errors = info["error_history"]
+    if not errors:
+        print("No CTMRG cycle history.")
+        return
+    title = rf"CTMRG | $\chi={info['chi']}$ | {info['status']}"
+    if by_site:
+        tiling = result["metadata"]["su_metadata"]["tiling"]
+        _, unitcell_coord = TILINGS[tiling]
+        sites_coords = tuple(site for site, direction in info["bond_rdms"] if direction == "r")
+        if output_path is not None:
+            output_path = output_path.with_name(f"{output_path.name}_by_site")
+        plot_ctmrg_convergence_by_site(errors, info["tolerance"], sites_coords, unitcell_coord, title=title, show=show, output_path=output_path)
+        return
+    plot_ctmrg_convergence_max([error.max().item() for error in errors], title=title, tolerance=info["tolerance"], show=show, output_path=output_path)
+
+
+def plot_energy_vs_chi(chi_values: list[int], energies: list[float], title: str = "", show: bool = False, output_path: Path | None = None) -> None:
     fig, ax = plt.subplots()
     ax.plot(chi_values, energies, "s-b")
     ax.set(xlabel=r"$\chi$", ylabel="Energy per spin")
@@ -61,19 +78,6 @@ def plot_energy_vs_chi(chi_values: list[int], energies: list[float], D: int, tit
     ax.set_axisbelow(True)
     ax.grid(alpha=0.3)
     finish_plot(fig, title=title, show=show, output_path=output_path)
-
-
-def plot_ctmrg_diagnostics(history_ctmrg: dict[int, dict[str, Any]], metadata: dict[str, Any], spins_per_peps_site: int, *, show: bool = False, output_dir: Path | None = None) -> None:
-    if not history_ctmrg or (not show and output_dir is None):
-        return
-    parameters_tag = "_".join(f"{key}={value}" for key, value in metadata["parameters"].items())
-    D = metadata["D"]
-    plot_tag = (f"{metadata['model']}_{metadata['tiling']}_D={D}_" f"{parameters_tag}_seed={metadata['seed']}")
-    converged_chi = sorted(chi for chi, result in history_ctmrg.items() if result["status"] == "converged" and isfinite(result["energy_per_peps_site"]))
-    if len(converged_chi) >= 4:
-        energies = [history_ctmrg[chi]["energy_per_peps_site"] / spins_per_peps_site for chi in converged_chi]
-        name = f"ctmrg_energy_vs_chi_{plot_tag}"
-        plot_energy_vs_chi(converged_chi, energies, D, show=show, output_path=output_dir / name if output_dir is not None else None)
 
 
 # Legacy code

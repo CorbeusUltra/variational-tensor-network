@@ -8,8 +8,7 @@ from variational_tensor_network.plots.observables import plot_energy
 
 
 def main() -> None:
-    model_name = "xss"  # "heisenberg", "shastry_sutherland", "ffb", "xss"
-    tiling_name = "abcd"
+    model_name = "x_shastry_sutherland" # "heisenberg", "shastry_sutherland", "ffb", "x_shastry_sutherland"
     JD = 1.0
     J = JD *.3
     J1 = JD * .35
@@ -18,8 +17,9 @@ def main() -> None:
         "heisenberg":           {"J": J},  # Expected energy per spin : −0.669441857(7) * J
         "shastry_sutherland":   {"JD": JD, "J": J},  # Expected energy per spin : -3/8 * JD  valid for J/JD <≈ 0.429(6)
         "ffb":                  {"JD": JD, "J": J},  # Expected energy per spin : -3/8 * JD  valid for J/JD <≈ 0,675(2)
-        "xss": {"JD": JD, "J1": J1, "J2": J2}, 
+        "x_shastry_sutherland": {"JD": JD, "J1": J1, "J2": J2}, 
     }
+    tiling_name = "abcd"
     couplings = parameters_by_model[model_name]
     D_values = (2,)  # Use (2, 3, 4) when those scans are available.
     h_min, h_max = 1.9, 2.7
@@ -32,6 +32,8 @@ def main() -> None:
     curves: dict[int, dict[float, float]] = {D: {} for D in D_values}
     for path in sorted((root / "data" / "ctmrg").glob("*/scan.json")):
         scan = json.loads(path.read_text(encoding="utf-8"))
+        if scan.get("sweep_direction") is not None:
+            continue
         point = scan["point"]
         D = point["D"]
         params = point["parameters"]
@@ -43,10 +45,7 @@ def main() -> None:
         if couplings is None:
             couplings = scan_couplings
         elif couplings != scan_couplings:
-            raise SystemExit(
-                f"Multiple coupling sets for {model_name}: "
-                f"{couplings} and {scan_couplings}."
-            )
+            raise SystemExit(f"Multiple coupling sets for {model_name}: {couplings} and {scan_couplings}.")
         h = params["h"]
         if not(h_min <= h <= h_max):
             continue

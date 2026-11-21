@@ -31,21 +31,6 @@ def print_progress(message: str, verbosity: int = 1, *, final: bool = False) -> 
         print(message, flush=True)
 
 
-def print_simulation_summary(su_info: dict, ctmrg_info_by_chi: dict) -> None:
-    """Print convergence and energy results for one SU and CTMRG simulation."""
-    for stage_index, (tau, tolerance) in enumerate(su_info["schedule"]):
-        if stage_index >= len(su_info["stages"]):
-            print(f"  tau={tau:.2e}, tol={tolerance:.2e} | not executed")
-            continue
-        stage = su_info["stages"][stage_index]
-        print(f"  tau={tau:.2e}, tol={tolerance:.2e} | sweeps={stage['sweeps']} | final error={stage['final_error']:.2e} | status={stage['status']} | time={format_duration(stage['duration'])}")
-    print(f"\n  Total sweeps: {su_info['total_sweeps']} | time={format_duration(su_info['duration'])}")
-    print_run_summary("Simple update", su_info)
-    for chi, info in ctmrg_info_by_chi.items():
-        print(f"  chi={chi} | cycles={info['total_cycles']} | final error={info['final_error']:.2e} | tol={info['tolerance']:.2e} | time={format_duration(info['duration'])}")
-        print_run_summary("CTMRG", info)
-
-
 def print_run_summary(name: str, diagnostics: dict, verbosity: int = 1) -> None:
     """Display the termination status of a run."""
     if verbosity < 1:
