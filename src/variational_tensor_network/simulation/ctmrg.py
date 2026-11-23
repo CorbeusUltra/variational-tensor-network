@@ -7,7 +7,7 @@ from typing import Any
 
 import torch
 
-from variational_tensor_network._utils.path import find_project_root
+from variational_tensor_network._utils.path import campaign_data_dir, find_project_root
 from variational_tensor_network.ctmrg import ctmrg
 from variational_tensor_network.initialize import (
     initial_boundary,
@@ -98,7 +98,7 @@ def ctmrg_scan_dir(metadata: dict[str, Any]) -> Path:
         scan_identity["sweep_direction"] = direction
     key = json.dumps(scan_identity, sort_keys=True, allow_nan=False).encode("utf-8")
     tag = sha256(key).hexdigest()
-    return root / "data" / "ctmrg" / tag
+    return campaign_data_dir(root) / "ctmrg" / tag
 
 
 def save_ctmrg_result(result: dict[str, Any]) -> Path:

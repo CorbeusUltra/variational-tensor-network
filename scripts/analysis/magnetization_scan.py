@@ -4,6 +4,8 @@ from pathlib import Path
 from pprint import pp
 from typing import Any, Literal
 
+from variational_tensor_network._utils.path import campaign_start_D
+
 
 def run_magnetization_point(D: int = 2, h: float = 3, *, source_path: Path | None = None, sweep_direction: Literal["up", "down"] | None = None) -> dict[str, Any]:
     from variational_tensor_network.simulation.chi_scan import run_chi_scan
@@ -73,11 +75,14 @@ def arange(start: float, stop: float, step: float) -> list[float]:
 
 
 def main() -> None:
-    D_VALUES = [2,3,4,5,6,7]
+    start_D = campaign_start_D()
+    D_VALUES = range(start_D, 8)
     start, stop, step = 1.9, 2.7, .025
     h_VALUES = arange(start, stop, step)
     points = [(D, h) for D in D_VALUES for h in h_VALUES]
     if sys.argv[1:] == ["--continuation"]:
+        if start_D != 2:
+            raise ValueError("--continuation requires VTN_START_D=2.")
         run_field_sweep(h_VALUES, "up")
         run_field_sweep(h_VALUES[::-1], "down")
         return

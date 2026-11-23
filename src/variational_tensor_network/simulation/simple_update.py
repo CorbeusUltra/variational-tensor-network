@@ -8,7 +8,11 @@ from typing import Any, Literal
 
 import torch
 
-from variational_tensor_network._utils.path import find_project_root
+from variational_tensor_network._utils.path import (
+    campaign_data_dir,
+    campaign_start_D,
+    find_project_root,
+)
 from variational_tensor_network._utils.reporting import (
     print_boxed,
     print_run_summary,
@@ -55,7 +59,7 @@ def is_usable_su_state(state: dict[str, Any]) -> bool:
 
 
 def find_lower_D_source(directory: Path, query: dict[str, Any], D: int) -> tuple[Path, dict] | None:
-    for lower_D in range(D - 1, 1, -1):
+    for lower_D in range(D - 1, campaign_start_D() - 1, -1):
         candidates = ((path, state) for path, state in matching_states(directory, {**query, "D": lower_D}) if is_usable_su_state(state))
         source = min(candidates, key=lambda item: item[1]["info_su"]["energy_per_peps_site"], default=None)
         if source is not None:
@@ -77,7 +81,7 @@ def load_nearby_h_source(source_path: Path, query: dict[str, Any], config: Confi
 
 
 def initialize_simple_update(config: Config, sites_coords: tuple[Site, ...], unitcell_coord: UnitCellCoord, H: BondOperators, query: dict[str, Any], seed: int, *, method: SUInitialization | None, tau_svd: float, verbosity: int, source_path: Path | None = None) -> tuple[TensorSites, BondWeights, dict[str, Any]]:
-    directory = root / "data" / "simple_update"
+    directory = campaign_data_dir(root) / "simple_update"
     match method:
         case "random" | "ones":
             source = None
@@ -178,7 +182,7 @@ def save_simple_update_state(state: dict[str, Any], output_dir: Path) -> Path:
 def run_simple_update(model_name: str, parameters_by_model: dict[str, dict[str, float]], tiling_name: str, D: int, seed: int, schedule: tuple[tuple[float, float], ...] = DEFAULT_SU_SCHEDULE, *, max_sweeps: int = DEFAULT_SU_MAX_STEPS, initialization: SUInitialization | None = None, source_path: Path | None = None, verbosity: int = 1, sweep_direction: Literal["up", "down"] | None = None, show_fig: bool, save_fig: bool) -> tuple[Path, dict]:
     state = compute_simple_update(model_name, parameters_by_model, tiling_name, D, seed, schedule=schedule, initialization=initialization, max_sweeps=max_sweeps, source_path=source_path, verbosity=verbosity)
     state["metadata"]["sweep_direction"] = sweep_direction
-    state_path = save_simple_update_state(state, root / "data" / "simple_update")
+    state_path = save_simple_update_state(state, campaign_data_dir(root) / "simple_update")
     if verbosity >= 1:
         print(f"\nSimple update saved under '{state_path}'.\n", flush=True)
         # print(f"Hash : {state_path.name}", flush=True)
@@ -192,7 +196,7 @@ def run_simple_update(model_name: str, parameters_by_model: dict[str, dict[str, 
 def select_or_run_su(model_name: str, parameters_by_model: dict[str, dict[str, float]], tiling_name: str, D: int, seed: int, *, verbosity: int = 1) -> tuple[Path, dict[str, Any]]:
     parameters = parameters_by_model[model_name]
     query = {"model": model_name, "parameters": parameters, "tiling": tiling_name, "D": D}
-    candidates = ((path, state) for path, state in matching_states(root / "data" / "simple_update", query) if is_usable_su_state(state))
+    candidates = ((path, state) for path, state in matching_states(campaign_data_dir(root) / "simple_update", query) if is_usable_su_state(state))
     selected = min(candidates, key=lambda item: item[1]["info_su"]["energy_per_peps_site"], default=None)
     if selected is None:
         if verbosity >= 1:
