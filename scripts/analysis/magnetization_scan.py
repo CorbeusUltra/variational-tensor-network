@@ -21,7 +21,7 @@ def run_magnetization_point(D: int = 2, h: float = 3, *, source_path: Path | Non
         "x_shastry_sutherland": {"JD": JD, "J1": J1, "J2": J2, "h": h}, 
     }
     tiling_name = "abcd"  # "checkerboard", "abcd", "rectangle_2x3"
-    seed = 0
+    seed = 1
 
     conv_tol_chi = 1e-6
     max_chi_iterations = 20
@@ -79,6 +79,8 @@ def main() -> None:
     D_VALUES = range(start_D, 8)
     start, stop, step = 1.9, 2.7, .025
     h_VALUES = arange(start, stop, step)
+    extra_h = arange(2.100, 2.185, 0.005)
+    h_VALUES = sorted(set(h_VALUES + extra_h))
     points = [(D, h) for D in D_VALUES for h in h_VALUES]
     if sys.argv[1:] == ["--continuation"]:
         if start_D != 2:
