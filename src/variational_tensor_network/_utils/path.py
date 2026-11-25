@@ -20,5 +20,7 @@ def campaign_start_D() -> int:
 
 def campaign_data_dir(project_root: Path) -> Path:
     data_dir = project_root / "data"
+    if environ.get("VTN_CAMPAIGN") == "D3-lowest-energy":
+        return data_dir / "campaigns" / "D3-lowest-energy"
     start_D = campaign_start_D()
     return data_dir if start_D == 2 else data_dir / "campaigns" / f"from-D{start_D}"

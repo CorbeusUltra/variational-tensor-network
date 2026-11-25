@@ -41,13 +41,12 @@ type SUInitialization = InitMethod | Literal["lower_D_padding", "lower_D_svd", "
 root = find_project_root(__file__)
 
 
-
-def matching_states(directory: Path, query: dict) -> Iterator[tuple[Path, dict]]:
+def matching_states(directory: Path, query: dict, *, include_sweeps: bool = False) -> Iterator[tuple[Path, dict]]:
     """Yield saved states matching every requested metadata field."""
     for path in sorted(directory.glob("*.pt")):
         state = torch.load(path, map_location="cpu", weights_only=True, mmap=True)
         metadata = state["metadata"]
-        if metadata.get("sweep_direction") is not None:
+        if not include_sweeps and metadata.get("sweep_direction") is not None:
             continue
         if all(key in metadata and metadata[key] == value for key, value in query.items()):
             yield path, state
@@ -58,9 +57,10 @@ def is_usable_su_state(state: dict[str, Any]) -> bool:
     return (info["status"] == "converged" and isfinite(info["energy_per_peps_site"]))
 
 
-def find_lower_D_source(directory: Path, query: dict[str, Any], D: int) -> tuple[Path, dict] | None:
+def find_lower_D_source(directory: Path, query: dict[str, Any], D: int, *, include_sweeps: bool = False) -> tuple[Path, dict] | None:
     for lower_D in range(D - 1, campaign_start_D() - 1, -1):
-        candidates = ((path, state) for path, state in matching_states(directory, {**query, "D": lower_D}) if is_usable_su_state(state))
+        states = matching_states(directory, {**query, "D": lower_D}, include_sweeps=include_sweeps)
+        candidates = ((path, state) for path, state in states if is_usable_su_state(state))
         source = min(candidates, key=lambda item: item[1]["info_su"]["energy_per_peps_site"], default=None)
         if source is not None:
             return source
@@ -90,7 +90,7 @@ def initialize_simple_update(config: Config, sites_coords: tuple[Site, ...], uni
                 raise ValueError("nearby_h requires the previous SU checkpoint.")
             source = load_nearby_h_source(source_path, query, config)
         case None | "lower_D_padding" | "lower_D_svd":
-            source = find_lower_D_source(directory, query, config.D)
+            source = find_lower_D_source(directory, query, config.D, include_sweeps=(method is not None))
         case _:
             raise ValueError(f"Unknown simple-update initialization: {method!r}")
     if source is None:

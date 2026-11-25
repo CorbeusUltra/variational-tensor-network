@@ -18,6 +18,7 @@ from variational_tensor_network.defaults import (
     DEFAULT_CHI_TOL,
     DEFAULT_CTMRG_MAX_STEPS,
     DEFAULT_CTMRG_TOL,
+    DEFAULT_VERBOSITY,
 )
 from variational_tensor_network.models import MODELS
 from variational_tensor_network.plots.ctmrg import plot_energy_vs_chi
@@ -156,7 +157,7 @@ def chi_scan(prepared: PreparedCTMRG, *, max_chi_iterations: int = DEFAULT_CHI_M
     return info
 
 
-def run_chi_scan(model_name: str, parameters_by_model: dict[str, dict[str, float]], tiling_name: str, D: int, seed: int, *, max_chi_iterations: int = DEFAULT_CHI_MAX_STEPS, conv_tol_chi: float = DEFAULT_CHI_TOL, required_stable_chi_iteration: int = DEFAULT_CHI_STABLE_STEPS, max_ctmrg_cycles: int = DEFAULT_CTMRG_MAX_STEPS, conv_tol_ctmrg: float = DEFAULT_CTMRG_TOL, su_state_path: Path | None = None, verbosity: int = 1, show_fig: bool = False, save_fig: bool = False) -> dict:
+def run_chi_scan(model_name: str, parameters_by_model: dict[str, dict[str, float]], tiling_name: str, D: int, seed: int, *, max_chi_iterations: int = DEFAULT_CHI_MAX_STEPS, conv_tol_chi: float = DEFAULT_CHI_TOL, required_stable_chi_iteration: int = DEFAULT_CHI_STABLE_STEPS, max_ctmrg_cycles: int = DEFAULT_CTMRG_MAX_STEPS, conv_tol_ctmrg: float = DEFAULT_CTMRG_TOL, su_state_path: Path | None = None, verbosity: int = DEFAULT_VERBOSITY, show_fig: bool = False, save_fig: bool = False) -> dict:
     state_path = su_state_path
     if state_path is None:
         state_path, _ = select_or_run_su(model_name, parameters_by_model, tiling_name, D, seed, verbosity=verbosity)

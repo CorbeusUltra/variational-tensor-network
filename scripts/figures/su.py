@@ -8,9 +8,11 @@ from variational_tensor_network.plots.simple_update import plot_simple_update_di
 
 def main() -> None:
     root = find_project_root(__file__)
-    state_path = root / "data" / "simple_update" / "1c2122a573811250a67ab495953f7aa25c1cc5d140a45d6e2ce297e9641181a0.pt"
+    # state_path = root / "data" / "simple_update" / "1c2122a573811250a67ab495953f7aa25c1cc5d140a45d6e2ce297e9641181a0.pt"
+    scan_id = "f916960fe91946db29e432282bb03f12adcea57c560f6f3817c8a9db03da0ab9"
+    state_path = root / "data" / "campaigns" / "from-D3" / "simple_update" / f"{scan_id}.pt"
     show_fig = True
-    save_fig = False
+    save_fig = True
 
     if not (show_fig or save_fig):
         return

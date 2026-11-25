@@ -21,11 +21,11 @@ def run_magnetization_point(D: int = 2, h: float = 3, *, source_path: Path | Non
         "x_shastry_sutherland": {"JD": JD, "J1": J1, "J2": J2, "h": h}, 
     }
     tiling_name = "abcd"  # "checkerboard", "abcd", "rectangle_2x3"
-    seed = 1
+    seed = 2 if campaign_start_D() == 4 else 1
 
     conv_tol_chi = 1e-6
     max_chi_iterations = 20
-    required_stable_chi_iteration = 3
+    required_stable_chi_iteration = 2
     conv_tol_ctmrg = 1e-7
     max_ctmrg_cycles = 2000
 
@@ -33,10 +33,15 @@ def run_magnetization_point(D: int = 2, h: float = 3, *, source_path: Path | Non
     show_fig = False
     save_fig = False
 
+    initialization = None
+    if os.environ.get("VTN_CAMPAIGN") == "D3-lowest-energy":
+        initialization = "lower_D_svd"
+    elif sweep_direction is not None and source_path is not None:
+        initialization = "nearby_h"
     su_state_path = None
-    if sweep_direction is not None:
+    if initialization is not None or sweep_direction is not None:
         from variational_tensor_network.simulation.simple_update import is_usable_su_state, run_simple_update  # noqa: I001
-        su_state_path, state = run_simple_update(model_name, parameters_by_model, tiling_name, D, seed, initialization="nearby_h" if source_path is not None else None, source_path=source_path, sweep_direction=sweep_direction, verbosity=verbosity, show_fig=False, save_fig=False)
+        su_state_path, state = run_simple_update(model_name, parameters_by_model, tiling_name, D, seed, initialization=initialization, source_path=source_path, sweep_direction=sweep_direction, verbosity=verbosity, show_fig=False, save_fig=False)
         if not is_usable_su_state(state):
             return {"status": "su_failed", "su_state_path": su_state_path}
     result = run_chi_scan(model_name, parameters_by_model, tiling_name, D, seed, max_chi_iterations=max_chi_iterations , conv_tol_chi=conv_tol_chi, required_stable_chi_iteration=required_stable_chi_iteration, max_ctmrg_cycles=max_ctmrg_cycles, conv_tol_ctmrg=conv_tol_ctmrg, su_state_path=su_state_path, verbosity=verbosity, show_fig=show_fig, save_fig=save_fig)
@@ -76,7 +81,9 @@ def arange(start: float, stop: float, step: float) -> list[float]:
 
 def main() -> None:
     start_D = campaign_start_D()
-    D_VALUES = range(start_D, 8)
+    selected_campaign = (os.environ.get("VTN_CAMPAIGN") == "D3-lowest-energy")
+    first_D = 4 if selected_campaign else start_D
+    D_VALUES = range(first_D, 8)
     start, stop, step = 1.9, 2.7, .025
     h_VALUES = arange(start, stop, step)
     extra_h = arange(2.100, 2.185, 0.005)
@@ -115,7 +122,9 @@ def main() -> None:
         raise ValueError(f"Task index {task_id} is outside the scan grid.")
     D, h = points[task_id]
     print(f"Slurm task {task_id} | D={D} | h={h}", flush=True)
-    run_magnetization_point(D, h)
+    result = run_magnetization_point(D, h)
+    if selected_campaign and result["status"] == "su_failed":
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

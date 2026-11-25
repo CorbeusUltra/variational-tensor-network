@@ -6,16 +6,24 @@ from math import isfinite, nan
 
 from variational_tensor_network._utils.path import campaign_data_dir, find_project_root
 from variational_tensor_network.plots._utils import field_plot_name
-from variational_tensor_network.plots.observables import plot_observable, plot_field_sweep
+from variational_tensor_network.plots.observables import plot_observable, plot_field_sweep, plot_energy_and_magnetization
 
 
 def main() -> None:
-    OBSERVABLES = {
+    plot_mode = "combined" # "combined", "separate", "energy", "magnetization"
+    selected_observables = {
+        "separate": ("energy", "magnetization"),
+        "energy": ("energy",),
+        "magnetization": ("magnetization",),
+        "combined": ("energy", "magnetization"),
+    }[plot_mode]
+    combined = (plot_mode == "combined")
+    curves_by_observable = {}
+    for observable in selected_observables:
+        OBSERVABLES = {
         "energy": ("energy_per_spin", r"$E/N_{\mathrm{spins}}$"),
         "magnetization": ("m_z_over_m_sat", r"$m_z/m_{\mathrm{sat}}$"),
-    }
-    selected_observables = ["energy", "magnetization"] # "energy", "magnetization"
-    for observable in selected_observables:
+        }
         value_key, ylabel = OBSERVABLES[observable]
         model_name = "x_shastry_sutherland"  # "heisenberg", "shastry_sutherland", "ffb", "x_shastry_sutherland"
         tiling_name = "abcd"
@@ -39,16 +47,18 @@ def main() -> None:
         if not (show_fig or save_fig):
             return
         root = find_project_root(__file__)
+        data_dir = campaign_data_dir(root)
+        selected_campaign = (data_dir.name == "D3-lowest-energy")
         curves: dict[int, dict[float, float]] = {D: {} for D in D_values}
         curves_by_direction: dict[str, dict[float, float]] = {"up": {}, "down": {}}
         # for path in sorted((root / "data" / "ctmrg").glob("*/scan.json")):
-        for path in sorted((campaign_data_dir(root) / "ctmrg").glob("*/scan.json")):
+        for path in sorted((data_dir / "ctmrg").glob("*/scan.json")):
             scan = json.loads(path.read_text(encoding="utf-8"))
             direction = scan.get("sweep_direction")
             if continuation:
                 if direction not in curves_by_direction:
                     continue
-            elif direction is not None:
+            elif direction is not None and not (selected_campaign and scan["point"]["D"] == 3):
                 continue
             point = scan["point"]
             D = point["D"]
@@ -81,8 +91,11 @@ def main() -> None:
             sweep_curves = {direction: sorted(curve.items(), reverse=(direction == "down")) for direction, curve in curves_by_direction.items()}
             if not any(isfinite(m) for points in sweep_curves.values() for _, m in points):
                 raise SystemExit("No CTMRG measure converged for the sweep at D=2.")
+            if combined:
+                curves_by_observable[observable] = sweep_curves
+                continue
             name = field_plot_name(model_name, tiling_name, couplings, D_values, sweep_curves.values(),observable=observable, continuation=True)
-            output_path = (root / "outputs" / "figures" / "magnetization" / name if save_fig else None)
+            output_path = (root / "outputs" / "figures" / observable / name if save_fig else None)
             plot_field_sweep(sweep_curves, ylabel=ylabel, show=show_fig, output_path=output_path)
             continue
         curves_by_D: dict[int, list[tuple[float, float]]] = {}
@@ -93,11 +106,24 @@ def main() -> None:
             curves_by_D[D] = sorted((h, m) for h, m in curve.items() if isfinite(m))
         if not curves_by_D:
             raise SystemExit("No magnetization curve to plot. Check the filters and data/ctmrg/.")
+        if combined:
+            curves_by_observable[observable] = curves_by_D
+            continue
         coupling_labels = [f"{key}={value}" for key, value in sorted(couplings.items())]
         name = field_plot_name(model_name, tiling_name, couplings, curves_by_D.keys(), curves_by_D.values(), observable=observable)
         title = f"{model_name} | {tiling_name} | {', '.join(coupling_labels)}"
         output_path = (root / "outputs" / "figures" / observable / name if save_fig else None)
         plot_observable(curves_by_D, ylabel=ylabel, title=title,show=show_fig, output_path=output_path)
+    if combined:
+        energy_curves = curves_by_observable["energy"]
+        magnetization_curves = curves_by_observable["magnetization"]
+        points_by_group = {}
+        for curves in (energy_curves, magnetization_curves):
+            for group, points in curves.items():
+                points_by_group.setdefault(group, {}).update((h, value) for h, value in points if isfinite(value))
+        name = field_plot_name(model_name, tiling_name, couplings, D_values if continuation else points_by_group, (points.items() for points in points_by_group.values()), observable="energy_magnetization", continuation=continuation)
+        output_path = root / "outputs" / "figures" / "energy_magnetization" / name if save_fig else None
+        plot_energy_and_magnetization(energy_curves, magnetization_curves, continuation=continuation, show=show_fig, output_path=output_path)
 
 
 if __name__ == "__main__":

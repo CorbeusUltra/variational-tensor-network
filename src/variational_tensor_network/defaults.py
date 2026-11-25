@@ -11,6 +11,7 @@ DEFAULT_CTMRG_TOL = 1e-7
 DEFAULT_CHI_TOL = 1e-6
 
 
+DEFAULT_TILING = "abcd" # "checkerboard", "abcd", "vertical_stripes_2", "horizontal_stripes_2", "vertical_stripes_3", "horizontal_stripes_3", "rectangle_2x3", "diagonal_3"
 DEFAULT_MODEL = "x_shastry_sutherland" # "heisenberg", "shastry_sutherland", "ffb", "x_shastry_sutherland"
 DEFAULT_JD = 1.0
 DEFAULT_J = DEFAULT_JD *.3
@@ -23,3 +24,7 @@ DEFAULT_PARAMETERS_BY_MODEL = {
     "ffb":                  {"JD": DEFAULT_JD, "J": DEFAULT_J, "h": DEFAULT_h},  # Expected energy per spin : -3/8 * JD  valid for J/JD <≈ 0,675(2)
     "x_shastry_sutherland": {"JD": DEFAULT_JD, "J1": DEFAULT_J1, "J2": DEFAULT_J2, "h": DEFAULT_h}, 
 }
+
+DEFAULT_SEED = 0
+
+DEFAULT_VERBOSITY = 2

@@ -8,10 +8,12 @@ from variational_tensor_network.plots.ctmrg import plot_ctmrg_convergence
 
 def main() -> None:
     root = find_project_root(__file__)
-    scan_id = "d1a5f6bd94012508a4c48f0365ec4b2848392fef343f89d0e074fed736cc806a"
-    result_path = root / "data" / "ctmrg" / scan_id / "chi=20.pt"
+    # scan_id = "d1a5f6bd94012508a4c48f0365ec4b2848392fef343f89d0e074fed736cc806a"
+    # result_path = root / "data" / "ctmrg" / scan_id / "chi=20.pt"
+    scan_id = "f916960fe91946db29e432282bb03f12adcea57c560f6f3817c8a9db03da0ab9"
+    result_path = root / "data" / "campaigns" / "from-D3" / "ctmrg" / scan_id / "chi=25.pt"
     show_fig = True
-    save_fig = False
+    save_fig = True
     by_site = True
 
     if not (show_fig or save_fig):
