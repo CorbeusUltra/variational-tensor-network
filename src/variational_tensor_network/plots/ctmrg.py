@@ -32,14 +32,22 @@ def plot_ctmrg_convergence_by_site(errors: list[Tensor], tolerance: float, sites
     ax.set(xlabel="number of cycle", ylabel=r"change in energy")
     ax.legend(loc="upper center")
     ax.grid()
-    inset = ax.inset_axes([0.68, 0.55, 0.28, 0.38], facecolor="white")
-    for y in range(6):
-        for x in range(6):
-            i = sites_coords.index(unitcell_coord(x, y))
-            inset.add_patch(Circle((x, y), radius=0.3, facecolor="white", edgecolor=f"C{i}"))
-            inset.text(x, y+.05, str(i), ha="center", va="center", fontsize=7, color=f"C{i}")
-    inset.set_xlim(-0.5, 5.5)
-    inset.set_ylim(5.5, -0.5)
+    pattern_size = {TILINGS["checkerboard"][1]: 2, TILINGS["diagonal_3"][1]: 3}.get(unitcell_coord)
+    display_sites = sites_coords if pattern_size is None else tuple((x, y) for y in range(pattern_size) for x in range(pattern_size))
+    if unitcell_coord is TILINGS["checkerboard"][1]:
+        display_sites = ((0, 0), (1, 0), (0, 1), (1, 1))
+    xs, ys = zip(*display_sites)
+    ncols = max(xs) - min(xs) + 1
+    nrows = max(ys) - min(ys) + 1
+    width = 0.28 * ncols / 6
+    height = 0.38 * nrows / 6
+    inset = ax.inset_axes([0.96 - width, 0.93 - height, width, height], facecolor="white")
+    for x, y in display_sites:
+        i = sites_coords.index(unitcell_coord(x, y))
+        inset.add_patch(Circle((x, y), radius=0.3, facecolor="white", edgecolor=f"C{i}"))
+        inset.text(x, y, str(i), ha="center", va="center", fontsize=7, color=f"C{i}")
+    inset.set_xlim(min(xs) - 0.5, max(xs) + 0.5)
+    inset.set_ylim(max(ys) + 0.5, min(ys) - 0.5)
     inset.set_aspect("equal")
     inset.set_xticks([])
     inset.set_yticks([])

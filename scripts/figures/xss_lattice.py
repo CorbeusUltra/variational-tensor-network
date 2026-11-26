@@ -17,11 +17,11 @@ from variational_tensor_network.tilings import TILINGS
 
 root = find_project_root(__file__)
 
-# m=1/2 plateau : "23a1d96655d6087d30e2b9cbe01d6ecb1bb4b5ee3c486ccf3f6a0142c6835b14/scan.json"
-# canted state  : "7deb078e9a155d31778dd4ee192190f7b7cb79c304ccf9e555ffe7ca9aa690e1/scan.json"
-# m=1 plateau   : "ae23d774600bd85b4dc9b84454f0e7c2f79b4e64cf34a9c1037a4b9e065095e9/scan.json"
+# m=1/2 plateau : "ed6e1d78c3a9b84d257e183ccbdb115ffecc7c72bf424af631ee73345ad7907a/scan.json"  # h=2.025
+# canted state  : "8c490f73ced8606f215d99cddc8e6a73ed6d66b04ec2438f7be00fb769bfab74/scan.json"  # h=2.17
+# m=1 plateau   : "19a8b80c18d16ca45738bbe52cb36dd4e67373a1dbd1f4c2692d00eb9f35442e/scan.json"  # h=2.5
 
-scan_path = root / "data/campaigns/D3-lowest-energy/ctmrg" / "23a1d96655d6087d30e2b9cbe01d6ecb1bb4b5ee3c486ccf3f6a0142c6835b14/scan.json"
+scan_path = root / "data/campaigns/D3-lowest-energy/ctmrg" / "8c490f73ced8606f215d99cddc8e6a73ed6d66b04ec2438f7be00fb769bfab74/scan.json"
 
 scan = json.loads(Path(scan_path).read_text(encoding="utf-8"))
 
